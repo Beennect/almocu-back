@@ -1,47 +1,19 @@
 services:
-  # ----------------------------------------------------
-  # ALMOCO_AUTH SERVICES
-  # ----------------------------------------------------
-  zitadel:
-    image: ghcr.io/zitadel/zitadel:latest
-    command: 'start-from-setup --masterkey "${ZITADEL_MASTERKEY:-masterkey}" --config /zitadel-config.yaml'
-    environment:
-      - ZITADEL_DATABASE_POSTGRES_HOST=db
-      - ZITADEL_DATABASE_POSTGRES_PORT=5432
-      - ZITADEL_DATABASE_POSTGRES_DATABASE=zitadel
-      - ZITADEL_DATABASE_POSTGRES_USER=zitadel
-      - ZITADEL_DATABASE_POSTGRES_PASSWORD=zitadel
-      - ZITADEL_DATABASE_POSTGRES_ADMIN_USER=postgres
-      - ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD=postgres
-      - ZITADEL_DATABASE_POSTGRES_SSL_MODE=disable
-      - ZITADEL_EXTERN_DOMAIN=${ZITADEL_DOMAIN:-localhost}
-      - ZITADEL_EXTERN_PORT=8080
-      - ZITADEL_EXTERN_SECURE=false
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./zitadel-config.yaml:/zitadel-config.yaml:Z
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - almoco_network
-
-  db:
+  auth-db:
     image: postgres:16-alpine
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=postgres
+      - POSTGRES_DB=auth_app
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
     ports:
-      - "127.0.0.1:55432:5432"
+      - "127.0.0.1:55433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data:Z
+      - auth_postgres_data:/var/lib/postgresql/data:Z
     networks:
       - almoco_network
 
@@ -51,13 +23,11 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=development
-      - ZITADEL_ISSUER=http://zitadel:8080
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
+      - JWT_SECRET=${JWT_SECRET:-super-secret-key-123}
+      - DATABASE_URL=postgresql://postgres:postgres@auth-db:5432/auth_app
     depends_on:
-      db:
+      auth-db:
         condition: service_healthy
-      zitadel:
-        condition: service_started
     networks:
       - almoco_network
 
@@ -108,6 +78,7 @@ services:
       - "3200:3000" # Mapped to 3200 to avoid conflict with auth-app (3000)
     environment:
       - PORT=3000
+      - JWT_SECRET=${JWT_SECRET:-super-secret-key-123}
       - MONGODB_URI=mongodb://mongodb:27017/almocu
       - REDIS_URI=redis://redis:6379
     depends_on:
@@ -136,5 +107,5 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
+  auth_postgres_data:
   mongo_data:
