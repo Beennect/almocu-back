@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { createOrder, getOrderById, getAllOrders, updateOrder, deleteOrder } from './controller';
+import { authMiddleware } from '../auth.middleware';
 
 const router = Router();
 
@@ -95,7 +96,7 @@ const router = Router();
  *       500:
  *         description: Erro interno
  */
-router.post('/', createOrder);
+router.post('/', authMiddleware(), createOrder);
 
 /**
  * @openapi
@@ -185,7 +186,7 @@ router.get('/:id', getOrderById);
  *       500:
  *         description: Erro interno
  */
-router.patch('/:id', updateOrder);
+router.patch('/:id', authMiddleware(), updateOrder);
 
 /**
  * @openapi
@@ -207,6 +208,6 @@ router.patch('/:id', updateOrder);
  *       500:
  *         description: Erro interno
  */
-router.delete('/:id', deleteOrder);
+router.delete('/:id', authMiddleware(['admin']), deleteOrder);
 
 export default router;

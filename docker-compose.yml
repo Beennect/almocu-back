@@ -55,15 +55,16 @@ services:
   # STOCK SERVICE
   # ----------------------------------------------------
   stock-app:
-    # Uses the cloned module directory
     build: ./modules/stock
-    depends_on:
-      - mongodb
-    ports:
-      - "3100:3100"
     environment:
-      - MONGO_URI=mongodb://mongodb:27017/almocu
-      - NODE_ENV=development
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET:-super-secret-key-123}
+      - MONGODB_URI=mongodb://mongodb:27017/almocu_stock
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "3100:3000"
     command: ["npm", "start"]
     networks:
       - almoco_network
@@ -97,7 +98,9 @@ services:
     ports:
       - "3300:3000"
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/almocu
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET:-super-secret-key-123}
+      - MONGODB_URI=mongodb://mongodb:27017/almocu_order
       - NODE_ENV=development
     networks:
       - almoco_network

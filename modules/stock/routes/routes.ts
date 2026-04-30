@@ -10,17 +10,19 @@ import {
   getOneProduct,
 } from '../src/product/controller';
 
+import { authMiddleware } from '../src/auth.middleware';
+
 const routes = Router();
 
 routes.get('/product/:id', getOneProduct);
 routes.get('/products/:restaurantId', getAllProducts);
 
-routes.post('/product', createOneProduct);
-routes.post('/products', createManyProducts);
-routes.patch('/product/:id', updateProduct);
-routes.post('/product/:id/adjust', adjustProductQuantity);
+routes.post('/product', authMiddleware(), createOneProduct);
+routes.post('/products', authMiddleware(), createManyProducts);
+routes.patch('/product/:id', authMiddleware(), updateProduct);
+routes.post('/product/:id/adjust', authMiddleware(), adjustProductQuantity);
 
-routes.delete('/product/:id', deleteOneProduct);
-routes.delete('/products', deleteManyProducts);
+routes.delete('/product/:id', authMiddleware(['admin']), deleteOneProduct);
+routes.delete('/products', authMiddleware(['admin']), deleteManyProducts);
 
 export default routes;
