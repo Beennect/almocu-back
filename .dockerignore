@@ -1,0 +1,10 @@
+node_modules
+dist
+modules
+.git
+.github
+npm-debug.log
+.env
+Dockerfile
+docker-compose.yml
+zitadel-config.yaml

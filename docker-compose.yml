@@ -1,0 +1,140 @@
+services:
+  # ----------------------------------------------------
+  # ALMOCO_AUTH SERVICES
+  # ----------------------------------------------------
+  zitadel:
+    image: ghcr.io/zitadel/zitadel:latest
+    command: 'start-from-setup --masterkey "${ZITADEL_MASTERKEY:-masterkey}" --config /zitadel-config.yaml'
+    environment:
+      - ZITADEL_DATABASE_POSTGRES_HOST=db
+      - ZITADEL_DATABASE_POSTGRES_PORT=5432
+      - ZITADEL_DATABASE_POSTGRES_DATABASE=zitadel
+      - ZITADEL_DATABASE_POSTGRES_USER=zitadel
+      - ZITADEL_DATABASE_POSTGRES_PASSWORD=zitadel
+      - ZITADEL_DATABASE_POSTGRES_ADMIN_USER=postgres
+      - ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD=postgres
+      - ZITADEL_DATABASE_POSTGRES_SSL_MODE=disable
+      - ZITADEL_EXTERN_DOMAIN=${ZITADEL_DOMAIN:-localhost}
+      - ZITADEL_EXTERN_PORT=8080
+      - ZITADEL_EXTERN_SECURE=false
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./zitadel-config.yaml:/zitadel-config.yaml:Z
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - almoco_network
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data:Z
+    networks:
+      - almoco_network
+
+  auth-app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - ZITADEL_ISSUER=http://zitadel:8080
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
+    depends_on:
+      db:
+        condition: service_healthy
+      zitadel:
+        condition: service_started
+    networks:
+      - almoco_network
+
+  # ----------------------------------------------------
+  # SHARED DATABASES (STOCK & MENU)
+  # ----------------------------------------------------
+  mongodb:
+    image: mongo:7.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27018:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - almoco_network
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "127.0.0.1:63790:6379"
+    networks:
+      - almoco_network
+
+  # ----------------------------------------------------
+  # STOCK SERVICE
+  # ----------------------------------------------------
+  stock-app:
+    # Uses the cloned module directory
+    build: ./modules/stock
+    depends_on:
+      - mongodb
+    ports:
+      - "3100:3100"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/almocu
+      - NODE_ENV=development
+    command: ["npm", "start"]
+    networks:
+      - almoco_network
+
+  # ----------------------------------------------------
+  # MENU SERVICE
+  # ----------------------------------------------------
+  menu-app:
+    # Uses the cloned module directory
+    build: ./modules/menu
+    ports:
+      - "3200:3000" # Mapped to 3200 to avoid conflict with auth-app (3000)
+    environment:
+      - PORT=3000
+      - MONGODB_URI=mongodb://mongodb:27017/almocu
+      - REDIS_URI=redis://redis:6379
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - almoco_network
+
+  # ----------------------------------------------------
+  # ORDER SERVICE
+  # ----------------------------------------------------
+  order-app:
+    build: ./modules/order
+    depends_on:
+      - mongodb
+    ports:
+      - "3300:3000"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/almocu
+      - NODE_ENV=development
+    networks:
+      - almoco_network
+
+networks:
+  almoco_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongo_data:
