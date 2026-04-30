@@ -16,27 +16,8 @@ app.get('/', (req, res) => {
 
 // Swagger configuration
 if (process.env.NODE_ENV === 'development') {
-  console.log("Initializing Swagger documentation...");
-  const swaggerOptions = {
-    definition: {
-      openapi: '3.0.0',
-      info: {
-        title: 'Stock API',
-        version: '1.0.0',
-        description: 'API para gerenciamento de estoque de produtos',
-      },
-      servers: [
-        {
-          url: 'http://localhost:3100',
-          description: 'Development server',
-        },
-      ],
-    },
-    apis: ['./src/product/*.ts', './index.ts'], // Captura anotações no controller e no index
-  };
-
-  const swaggerSpec = swaggerJsdoc(swaggerOptions);
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  const swaggerFile = require('./swagger-output.json');
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
   console.log("Swagger UI available at http://localhost:3100/api-docs");
 }
 

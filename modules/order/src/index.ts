@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import { connectDatabase } from './data-source';
 import swaggerUi from 'swagger-ui-express';
-import swaggerJsdoc from 'swagger-jsdoc';
+
 import orderRouter from './order/router';
 
 const app = express();
@@ -14,26 +14,8 @@ app.use(express.json());
 app.use('/orders', orderRouter);
 
 // Swagger
-const swaggerOptions = {
-    definition: {
-        openapi: '3.0.0',
-        info: {
-            title: 'Order API',
-            version: '1.0.0',
-            description: 'API para gerenciamento de pedidos do restaurante',
-        },
-        servers: [
-            {
-                url: `http://localhost:${PORT}`,
-                description: 'Servidor local',
-            },
-        ],
-    },
-    apis: ['./src/order/*.ts'],
-};
-
-const swaggerSpec = swaggerJsdoc(swaggerOptions);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+const swaggerFile = require('../swagger-output.json');
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
 
 // Tratamento de erros de JSON inválido
 app.use((err: any, req: any, res: any, next: any) => {

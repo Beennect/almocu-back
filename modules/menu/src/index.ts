@@ -3,7 +3,7 @@ import express from 'express';
 import { connectDatabase } from './data-source';
 import { connectRedis } from './redis';
 import swaggerUi from 'swagger-ui-express';
-import { swaggerDocs } from './swagger';
+
 import productRouter from './product/router';
 
 const app = express();
@@ -11,7 +11,8 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+const swaggerFile = require('../swagger-output.json');
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
 
 // rotas
 app.use('/product', productRouter);
