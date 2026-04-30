@@ -1,98 +1,97 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🚀 Nosherp Monorepo - Microserviços & Gateway
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Bem-vindo ao ecossistema **Nosherp**. Este é um monorepo escalável, organizado em microserviços, com um API Gateway centralizado para autenticação e roteamento inteligente.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## 🏗️ Arquitetura e Organização
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+O projeto segue uma estrutura de **Monorepo** moderna, separando a inteligência do Gateway dos serviços de negócio.
 
-## Project setup
-
-```bash
-$ npm install
+```text
+.
+├── src/                    # 🛡️ API GATEWAY (Auth & Proxy)
+│   ├── common/             # Middlewares (Proxy, Auth) e Filtros
+│   ├── modules/            # Lógica de Autenticação e Usuários
+│   └── main.ts             # Entrada principal (Porta 3000)
+│
+├── modules/                # 📦 MICROSERVIÇOS
+│   ├── menu/               # Gestão de Cardápio (Porta 3200)
+│   ├── stock/              # Gestão de Estoque (Porta 3100)
+│   └── order/              # Gestão de Pedidos (Porta 3300)
+│
+└── docker-compose.yml      # 🐳 Orquestração de Infraestrutura
 ```
 
-## Compile and run the project
+---
 
-```bash
-# development
-$ npm run start
+## 🚦 Portas e Acesso Rápido
 
-# watch mode
-$ npm run start:dev
+O **Gateway** centraliza todas as chamadas. Você não precisa acessar os microserviços diretamente, o Gateway faz o roteamento via prefixos `/api`.
 
-# production mode
-$ npm run start:prod
+| Serviço | Porta Local | Prefixo no Gateway | Descrição |
+| :--- | :--- | :--- | :--- |
+| **Gateway (Auth)** | `3000` | `/auth` | Login, Registro e Proxying |
+| **Stock Service** | `3100` | `/api/stock` | Inventário e Produtos |
+| **Menu Service** | `3200` | `/api/menu` | Cardápio e Restaurantes |
+| **Order Service** | `3300` | `/api/order` | Gestão de Pedidos |
+| **Netdata** | `19999` | N/A | Dashboard de Monitoramento |
+
+---
+
+## 🔐 Configuração (.env)
+
+O projeto utiliza variáveis de ambiente para conexões de banco e segredos. Certifique-se de ter um arquivo `.env` na raiz:
+
+### Gateway (`.env` na raiz)
+```env
+# Banco de Dados Auth (PostgreSQL)
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=sua_senha
+POSTGRES_DB=auth_db
+DATABASE_URL="postgresql://postgres:sua_senha@auth-db:5432/auth_db"
+
+# Autenticação
+JWT_SECRET=super-secret-key-123
 ```
 
-## Run tests
+### Microserviços
+Os microserviços já estão configurados no `docker-compose.yml` para usar o MongoDB interno, mas se precisar alterar:
+*   `MONGODB_URI`: `mongodb://mongodb:27017/nome_do_servico`
 
+---
+
+## 🛠️ Comandos Úteis
+
+### Subir o Ambiente Completo
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+sudo docker-compose up --build -d
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
+### Ver Logs de um Serviço Específico
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+sudo docker-compose logs -f auth-app
+sudo docker-compose logs -f stock-app
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### Limpar Tudo (Volumes e Containers órfãos)
+```bash
+sudo docker-compose down -v --remove-orphans
+```
 
-## Resources
+---
 
-Check out a few resources that may come in handy when working with NestJS:
+## 📊 Monitoramento Premium
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+Instalamos o **Netdata** para você acompanhar o batimento cardíaco do sistema.
+*   **Link Local:** [http://localhost:19999](http://localhost:19999)
+*   **O que ver:** Procure a seção **"Containers"** na barra lateral para ver gráficos de CPU/RAM de cada microserviço em tempo real.
 
-## Support
+---
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## 📝 Notas de Desenvolvimento
+- **Hot-Reload:** Os microserviços possuem volumes mapeados. Qualquer alteração em `modules/*/src` refletirá instantaneamente nos containers.
+- **Gateway Build:** O Gateway (`auth-app`) não possui volume mapeado por segurança de permissões no Linux. Se alterar algo na raiz (`src/`), rode `docker-compose up --build auth-app`.
 
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+---
+⚡ *Desenvolvido com foco em alta performance e escalabilidade.*
