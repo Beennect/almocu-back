@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
-import { connectDatabase } from './data-source';
+import { connectDatabase } from './config/data-source';
 import swaggerUi from 'swagger-ui-express';
 
 import orderRouter from './order/router';

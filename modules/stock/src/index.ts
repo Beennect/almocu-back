@@ -16,7 +16,7 @@ app.get('/', (req, res) => {
 
 // Swagger configuration
 if (process.env.NODE_ENV === 'development') {
-  const swaggerFile = require('./swagger-output.json');
+  const swaggerFile = require('../swagger-output.json');
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
   console.log("Swagger UI available at http://localhost:3100/api-docs");
 }

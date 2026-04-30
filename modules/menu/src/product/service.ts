@@ -1,5 +1,5 @@
 import { ProductModel, IProduct } from "./model";
-import { redis, redisConnected } from "../redis";
+import { redis, redisConnected } from "../config/redis";
 import { Types } from "mongoose";
 
 export class ProductService 

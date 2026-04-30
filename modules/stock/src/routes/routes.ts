@@ -8,9 +8,9 @@ import {
   deleteOneProduct,
   getAllProducts,
   getOneProduct,
-} from '../src/product/controller';
+} from '../product/controller';
 
-import { authMiddleware } from '../src/auth.middleware';
+import { authMiddleware } from '../middlewares/auth.middleware';
 
 const routes = Router();
 

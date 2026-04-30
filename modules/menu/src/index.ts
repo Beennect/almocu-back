@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
-import { connectDatabase } from './data-source';
-import { connectRedis } from './redis';
+import { connectDatabase } from './config/data-source';
+import { connectRedis } from './config/redis';
 import swaggerUi from 'swagger-ui-express';
 
 import productRouter from './product/router';

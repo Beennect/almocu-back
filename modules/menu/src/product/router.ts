@@ -9,7 +9,7 @@ import {
     deleteManyProducts 
 } from './controller';
 
-import { authMiddleware } from '../auth.middleware';
+import { authMiddleware } from '../middlewares/auth.middleware';
 
 const router = Router();
 
