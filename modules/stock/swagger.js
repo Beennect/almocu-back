@@ -18,6 +18,6 @@ const doc = {
 };
 
 const outputFile = './swagger-output.json';
-const endpointsFiles = ['./index.ts']; // O swagger-autogen segue os imports a partir daqui
+const endpointsFiles = ['./index.ts'];
 
 swaggerAutogen(outputFile, endpointsFiles, doc);

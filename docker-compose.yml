@@ -41,6 +41,11 @@ services:
       - "127.0.0.1:27018:27017"
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - almoco_network
 
@@ -60,12 +65,13 @@ services:
       - PORT=3000
       - JWT_SECRET=${JWT_SECRET:-super-secret-key-123}
       - MONGODB_URI=mongodb://mongodb:27017/almocu_stock
+      - NODE_ENV=development
     depends_on:
       mongodb:
         condition: service_healthy
     ports:
       - "3100:3000"
-    command: ["npm", "start"]
+    command: ["npm", "run", "dev"]
     networks:
       - almoco_network
 
@@ -82,9 +88,11 @@ services:
       - JWT_SECRET=${JWT_SECRET:-super-secret-key-123}
       - MONGODB_URI=mongodb://mongodb:27017/almocu
       - REDIS_URI=redis://redis:6379
+      - NODE_ENV=development
     depends_on:
       - mongodb
       - redis
+    command: ["npm", "run", "dev"]
     networks:
       - almoco_network
 
@@ -104,6 +112,7 @@ services:
       - NODE_ENV=development
     networks:
       - almoco_network
+    command: ["npm", "run", "dev"]
 
 networks:
   almoco_network:

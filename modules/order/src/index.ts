@@ -13,9 +13,12 @@ app.use(express.json());
 // Rotas
 app.use('/orders', orderRouter);
 
-// Swagger
-const swaggerFile = require('../swagger-output.json');
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
+// Swagger configuration
+if (process.env.NODE_ENV === 'development') {
+    const swaggerFile = require('../swagger-output.json');
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
+    console.log("Swagger UI available at http://localhost:3300/api-docs");
+}
 
 // Tratamento de erros de JSON inválido
 app.use((err: any, req: any, res: any, next: any) => {
@@ -31,9 +34,9 @@ app.use((err: any, req: any, res: any, next: any) => {
 const start = async () => {
     await connectDatabase();
 
-    app.listen(PORT, () => {
-        console.log(`Server rodando na porta ${PORT}`);
-        console.log(`Documentação disponível em http://localhost:${PORT}/api-docs`);
+    const HOST = '0.0.0.0';
+    app.listen(Number(PORT), HOST, () => {
+        console.log(`Server running on http://${HOST}:${PORT}`);
     });
 };
 

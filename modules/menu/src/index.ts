@@ -11,8 +11,12 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-const swaggerFile = require('../swagger-output.json');
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
+// Swagger configuration
+if (process.env.NODE_ENV === 'development') {
+  const swaggerFile = require('../swagger-output.json');
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
+  console.log("Swagger UI available at http://localhost:3200/api-docs");
+}
 
 // rotas
 app.use('/product', productRouter);
@@ -29,12 +33,25 @@ app.use((err: any, req: any, res: any, next: any) => {
   return res.status(500).json("Erro interno! Cheque o terminal");
 });
 
-const start = async () => {
-  await connectDatabase();
-  await connectRedis();
+app.get('/', (req, res) => {
+  res.send('API de Cardápio (Menu) funcionando! Acesse /api-docs para documentação.');
+});
 
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+const start = async () => {
+  console.log("Iniciando microserviço de Menu...");
+  
+  console.log("Conectando ao MongoDB...");
+  await connectDatabase();
+  console.log("MongoDB conectado!");
+
+  console.log("Conectando ao Redis...");
+  await connectRedis();
+  console.log("Redis finalizado (conectado ou em fallback)!");
+
+  const HOST = '0.0.0.0';
+  app.listen(Number(PORT), HOST, () => {
+    console.log(`Server running on http://${HOST}:${PORT}`);
+    console.log(`Swagger disponível em http://localhost:3200/api-docs`);
   });
 };
 

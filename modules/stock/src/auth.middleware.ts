@@ -15,11 +15,8 @@ export const authMiddleware = (roles: string[] = []) => {
 
     try {
       const decoded: any = jwt.verify(token, JWT_SECRET);
-      
-      // Cast para 'any' para evitar erro de tipagem do Express no build
       (req as any).user = decoded;
 
-      // Se pedirmos roles específicas, verificamos aqui
       if (roles.length > 0) {
         const userRoles = decoded.roles || [];
         const hasRole = roles.some(role => userRoles.includes(role));

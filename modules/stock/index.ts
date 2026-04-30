@@ -21,18 +21,22 @@ if (process.env.NODE_ENV === 'development') {
   console.log("Swagger UI available at http://localhost:3100/api-docs");
 }
 
+console.log("Iniciando conexão com o banco: ", process.env.MONGODB_URI);
 connectDb()
   .then(() => {
-      console.log("Database connected");
+      console.log("Database connected successfully");
 
-      const PORT = 3100;
+      const PORT = process.env.PORT || 3100;
       const HOST = '0.0.0.0';
-      app.listen(PORT, HOST, () => {
+      app.listen(Number(PORT), HOST, () => {
         console.log(`Server running on http://${HOST}:${PORT}`);
-        console.log(`Local access: http://localhost:${PORT}`);
+        console.log(`Swagger UI available at http://localhost:${PORT}/api-docs`);
       });
     })
-  .catch((error) => console.log(error));
+  .catch((error) => {
+    console.error("Erro ao conectar no banco:");
+    console.error(error);
+  });
 
 // lidar com erros de json
 app.use((err: any, req: any, res: any, next: any) => {
