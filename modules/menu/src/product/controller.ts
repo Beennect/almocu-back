@@ -3,60 +3,91 @@ import { ProductService } from "./service";
 
 const service = new ProductService();
 
+const getAuthData = (req: Request) => {
+    const user = (req as any).user;
+    if (!user || !user._id) {
+        throw new Error("Usuário não autenticado ou token inválido");
+    }
+    return {
+        userId: user._id as string,
+        restaurantId: user.restaurantId as string,
+    };
+};
+
 export async function getOneProduct(req: Request, res: Response)
 {
     const { id } = req.params;
-    const { restaurantId } = req.query;
-
-    if (!restaurantId) return res.status(400).json({ message: "restaurantId é obrigatório" });
 
     try 
     {
-        let product = await service.getOne(id as string, restaurantId as string);
+        const { userId, restaurantId } = getAuthData(req);
+        if (!restaurantId) return res.status(400).json({ message: "ID do restaurante não encontrado no token" });
 
-        if (!product) return res.status(404).json({message: "Produto não encontrado"});
+        let product = await service.getOne(id as string, userId, restaurantId);
+
+        if (!product) return res.status(404).json({message: "Produto não encontrado nesta filial"});
 
         return res.json(product);
     }
-    catch (error)
+    catch (error: any)
     {
         console.log(error);
-        return res.status(500).json({message: "Erro interno na busca do produto.", err: error});
+        return res.status(500).json({message: "Erro interno na busca do produto.", err: error.message || error});
     }
 }
 
 export async function getAllProducts(req: Request, res: Response)
 {
-    const { restaurantId } = req.query;
-
-    if (!restaurantId) return res.status(400).json({ message: "restaurantId é obrigatório" });
-
     try 
     {
-        let products = await service.getAll(restaurantId as string);
+        const { userId, restaurantId } = getAuthData(req);
+        if (!restaurantId) return res.status(400).json({ message: "ID do restaurante não encontrado no token" });
 
-        if (products.length === 0) return res.json({message: "Lista de produtos vazia."});
+        let products = await service.getMany(userId, restaurantId);
+
+        if (products.length === 0) return res.json({message: "Lista de produtos vazia nesta filial."});
 
         return res.json(products);
     }
-    catch (error)
+    catch (error: any)
     {
-        return res.status(500).json({message: "Erro interno na busca dos produtos."})
+        return res.status(500).json({message: "Erro interno na busca dos produtos.", err: error.message || error});
+    }
+}
+
+export async function getAllUserProducts(req: Request, res: Response)
+{
+    try 
+    {
+        const { userId } = getAuthData(req);
+
+        let products = await service.getAllFromUser(userId);
+
+        if (products.length === 0) return res.json({message: "Lista de produtos vazia para este usuário."});
+
+        return res.json(products);
+    }
+    catch (error: any)
+    {
+        return res.status(500).json({message: "Erro interno na busca dos produtos.", err: error.message || error});
     }
 }
 
 export async function createOneProduct(req: Request, res: Response)
 {
-    const {name, brand, price, description, restaurantId} = req.body;
+    const {name, brand, price, description, stockProductId} = req.body;
 
     try 
     {
-        if (!name || !brand || price === undefined || !restaurantId)
+        const { userId, restaurantId } = getAuthData(req);
+        if (!restaurantId) return res.status(400).json({ message: "ID do restaurante não encontrado no token" });
+
+        if (!name || !brand || price === undefined || !stockProductId)
         {
-            return res.status(400).json({message: "Por favor, preencha os dados obrigatórios (name, brand, price, restaurantId)!"})
+            return res.status(400).json({message: "Por favor, preencha os dados obrigatórios (name, brand, price, stockProductId)!"})
         }
         
-        const product = await service.createOne(name, brand, price, description, restaurantId);
+        const product = await service.createOne(name, brand, price, description, stockProductId, userId, restaurantId);
             
         return res.status(201).json(product);
     }
@@ -74,7 +105,16 @@ export async function createManyProducts(req: Request, res: Response)
 {
     try 
     {
-        const products = await service.createMany(req.body);
+        const { userId, restaurantId } = getAuthData(req);
+        if (!restaurantId) return res.status(400).json({ message: "ID do restaurante não encontrado no token" });
+
+        const payload = req.body.map((item: any) => ({
+            ...item,
+            userId,
+            restaurantId
+        }));
+
+        const products = await service.createMany(payload);
         return res.status(201).json(products);
     }
     catch(error: any) 
@@ -89,15 +129,15 @@ export async function createManyProducts(req: Request, res: Response)
 export async function deleteOneProduct(req: Request, res: Response)
 {
     const { id } = req.params;
-    const { restaurantId } = req.query;
-
-    if (!restaurantId) return res.status(400).json({ message: "restaurantId é obrigatório" });
 
     try 
     {
-        const deletedProduct = await service.deleteOne(id as string, restaurantId as string);
+        const { userId, restaurantId } = getAuthData(req);
+        if (!restaurantId) return res.status(400).json({ message: "ID do restaurante não encontrado no token" });
 
-        if (!deletedProduct) return res.status(404).json({ message: "Produto não encontrado" });
+        const deletedProduct = await service.deleteOne(id as string, userId, restaurantId);
+
+        if (!deletedProduct) return res.status(404).json({ message: "Produto não encontrado nesta filial" });
 
         return res.status(200).json({ message: "Produto deletado com sucesso!"});
     }
@@ -109,16 +149,19 @@ export async function deleteOneProduct(req: Request, res: Response)
 
 export async function deleteManyProducts(req: Request, res: Response)
 {
-    const { ids, restaurantId } = req.body;
+    const { ids } = req.body;
 
     try 
     {
-        if (!ids || !Array.isArray(ids) || ids.length === 0 || !restaurantId) 
+        const { userId, restaurantId } = getAuthData(req);
+        if (!restaurantId) return res.status(400).json({ message: "ID do restaurante não encontrado no token" });
+
+        if (!ids || !Array.isArray(ids) || ids.length === 0) 
             return res.status(400).json({message: "Dados inválidos para deleção"});
 
-        const result = await service.deleteMany(ids, restaurantId); 
+        const result = await service.deleteMany(ids, userId, restaurantId); 
 
-        if (result.deletedCount === 0) return res.status(400).json({message: "Nenhum produto encontrado!"});
+        if (result.deletedCount === 0) return res.status(400).json({message: "Nenhum produto encontrado nesta filial!"});
 
         return res.status(200).json({message: `${result.deletedCount} produto(s) deletado(s) com sucesso!`})
     }
@@ -131,12 +174,17 @@ export async function deleteManyProducts(req: Request, res: Response)
 export async function updateOneProduct(req: Request, res: Response)
 {
     const { id } = req.params;
-    const { restaurantId, ...data } = req.body;
-
-    if (!restaurantId) return res.status(400).json({ message: "restaurantId é obrigatório" });
+    const data = req.body;
 
     try {
-        const product = await service.updateOne(id as string, restaurantId as string, data);
+        const { userId, restaurantId } = getAuthData(req);
+        if (!restaurantId) return res.status(400).json({ message: "ID do restaurante não encontrado no token" });
+
+        // Remover userId e restaurantId do payload de update se enviados maliciosamente
+        delete data.userId;
+        delete data.restaurantId;
+
+        const product = await service.updateOne(id as string, userId, restaurantId, data);
         return res.json(product);
     } catch (error: any) {
         if (error.message?.includes("Já existe")) {

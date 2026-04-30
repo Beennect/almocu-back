@@ -13,6 +13,7 @@ export interface IOrderItem
 export interface IOrder 
 {
     restaurantId: string;
+    userId: string;
     items: IOrderItem[];
     totalValue: number;
     status: 'pendente' | 'em_preparo' | 'pronto' | 'entregue' | 'cancelado';
@@ -39,6 +40,7 @@ const OrderSchema = new Schema<IOrder>
 (
     {
         restaurantId: { type: String, required: true, index: true },
+        userId: { type: String, required: true, index: true },
         items: 
         { 
             type: [OrderItemSchema], 

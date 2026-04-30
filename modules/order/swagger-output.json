@@ -11,18 +11,9 @@
     }
   ],
   "paths": {
-    "/orders/": {
+    "/orders/user/all": {
       "get": {
         "description": "",
-        "parameters": [
-          {
-            "name": "restaurantId",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "OK"
@@ -31,30 +22,31 @@
             "description": "Internal Server Error"
           }
         }
+      }
+    },
+    "/orders/": {
+      "get": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
       },
       "post": {
         "description": "",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "201": {
             "description": "Created"
           },
           "400": {
             "description": "Bad Request"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
           },
           "500": {
             "description": "Internal Server Error"
@@ -66,9 +58,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "restaurantId": {
-                    "example": "any"
-                  },
                   "items": {
                     "example": "any"
                   },
@@ -105,6 +94,24 @@
         }
       },
       "patch": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      },
+      "delete": {
         "description": "",
         "parameters": [
           {

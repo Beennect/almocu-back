@@ -4,6 +4,7 @@ import { OrderModel, IOrder, IOrderItem } from './model';
 type CreateOrderInput = 
 {
     restaurantId: string;
+    userId: string;
     items: IOrderItem[];
     origin?: string;
     observations?: string;
@@ -27,12 +28,14 @@ export class OrderService
     public async create(data: CreateOrderInput): Promise<IOrder> 
     {
         if (!data.restaurantId) throw new Error('Por favor, informe o restaurante!');
+        if (!data.userId) throw new Error('Por favor, informe o usuário!');
         if (!data.items || data.items.length === 0) throw new Error('O pedido deve ter ao menos um item!');
 
         const totalValue = this.calcularTotal(data.items);
 
         const order = new OrderModel({
             restaurantId: data.restaurantId,
+            userId: data.userId,
             items: data.items,
             totalValue,
             origin: data.origin,
@@ -42,24 +45,24 @@ export class OrderService
         return order.save();
     }
 
-    public async getById(id: string): Promise<IOrder | null> 
+    public async getById(id: string, userId: string, restaurantId: string): Promise<IOrder | null> 
     {
         if (!Types.ObjectId.isValid(id)) return null;
         
-        return OrderModel.findById(id);
+        return OrderModel.findOne({ _id: id, userId, restaurantId });
     }
 
-    public async getAll(): Promise<IOrder[]> 
+    public async getAllFromUser(userId: string): Promise<IOrder[]> 
     {
-        return OrderModel.find().limit(100).sort({ createdAt: -1 });
+        return OrderModel.find({ userId }).limit(100).sort({ createdAt: -1 });
     }
 
-    public async getAllByRestaurantId(restaurantId: string): Promise<IOrder[]> 
+    public async getAllByRestaurantId(userId: string, restaurantId: string): Promise<IOrder[]> 
     {
-        return OrderModel.find({ restaurantId }).limit(100).sort({ createdAt: -1 });
+        return OrderModel.find({ userId, restaurantId }).limit(100).sort({ createdAt: -1 });
     }
 
-    public async update(id: string, data: UpdateOrderInput): Promise<IOrder | null> 
+    public async update(id: string, userId: string, restaurantId: string, data: UpdateOrderInput): Promise<IOrder | null> 
     {
         const updateData: Partial<UpdateOrderInput> = {};
 
@@ -79,14 +82,14 @@ export class OrderService
             updateData.observations = data.observations;
         }
 
-        return OrderModel.findByIdAndUpdate(id, updateData, { new: true });
+        return OrderModel.findOneAndUpdate({ _id: id, userId, restaurantId }, updateData, { new: true });
     }
 
-    public async deleteById(id: string): Promise<IOrder | null> 
+    public async deleteById(id: string, userId: string, restaurantId: string): Promise<IOrder | null> 
     {
         if (!Types.ObjectId.isValid(id)) return null;
 
-        const deleted = await OrderModel.findByIdAndDelete(id);
+        const deleted = await OrderModel.findOneAndDelete({ _id: id, userId, restaurantId });
 
         return deleted;
     }

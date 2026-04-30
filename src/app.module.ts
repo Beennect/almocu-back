@@ -6,6 +6,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './users/users.module';
 import { ProxyMiddleware } from './common/middlewares/proxy.middleware';
+import { RedisModule } from './redis/redis.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -20,11 +23,30 @@ import { ProxyMiddleware } from './common/middlewares/proxy.middleware';
         synchronize: true, // Desativar em produção!
       }),
     }),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          {
+            ttl: 60,
+            limit: 10,
+          },
+        ],
+      }),
+    }),
+    RedisModule,
     AuthModule,
     UsersModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

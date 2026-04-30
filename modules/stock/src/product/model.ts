@@ -8,6 +8,7 @@ export interface ProductDocument {
   brand?: string;
   quantity: number;
   restaurantId: Types.ObjectId;
+  userId: Types.ObjectId;
 }
 
 const productSchema = new Schema<ProductDocument>(
@@ -16,12 +17,13 @@ const productSchema = new Schema<ProductDocument>(
     brand: { type: String, default: "" },
     quantity: { type: Number, required: true, min: 0 },
     restaurantId: { type: Schema.Types.ObjectId, required: true },
+    userId: { type: Schema.Types.ObjectId, required: true },
   },
   { timestamps: true, collection: "products" }
 );
 
-// Garante que name + brand + restaurantId é único por restaurante
-productSchema.index({ name: 1, brand: 1, restaurantId: 1 }, { unique: true });
+// Garante que name + brand + restaurantId + userId é único
+productSchema.index({ name: 1, brand: 1, restaurantId: 1, userId: 1 }, { unique: true });
 
 const ProductModel = model<ProductDocument>("Product", productSchema);
 export default ProductModel;

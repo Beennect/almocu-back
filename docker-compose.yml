@@ -26,9 +26,12 @@ services:
       - NODE_ENV=development
       - JWT_SECRET=super-secret-key-123
       - DATABASE_URL=postgresql://postgres:postgres@auth-db:5432/auth_app
+      - REDIS_URI=redis://redis:6379
     depends_on:
       auth-db:
         condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - almoco_network
 

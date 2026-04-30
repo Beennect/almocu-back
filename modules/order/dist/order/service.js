@@ -12,11 +12,14 @@ class OrderService {
     async create(data) {
         if (!data.restaurantId)
             throw new Error('Por favor, informe o restaurante!');
+        if (!data.userId)
+            throw new Error('Por favor, informe o usuário!');
         if (!data.items || data.items.length === 0)
             throw new Error('O pedido deve ter ao menos um item!');
         const totalValue = this.calcularTotal(data.items);
         const order = new model_1.OrderModel({
             restaurantId: data.restaurantId,
+            userId: data.userId,
             items: data.items,
             totalValue,
             origin: data.origin,
@@ -24,18 +27,18 @@ class OrderService {
         });
         return order.save();
     }
-    async getById(id) {
+    async getById(id, userId, restaurantId) {
         if (!mongoose_1.Types.ObjectId.isValid(id))
             return null;
-        return model_1.OrderModel.findById(id);
+        return model_1.OrderModel.findOne({ _id: id, userId, restaurantId });
     }
-    async getAll() {
-        return model_1.OrderModel.find().limit(100).sort({ createdAt: -1 });
+    async getAllFromUser(userId) {
+        return model_1.OrderModel.find({ userId }).limit(100).sort({ createdAt: -1 });
     }
-    async getAllByRestaurantId(restaurantId) {
-        return model_1.OrderModel.find({ restaurantId }).limit(100).sort({ createdAt: -1 });
+    async getAllByRestaurantId(userId, restaurantId) {
+        return model_1.OrderModel.find({ userId, restaurantId }).limit(100).sort({ createdAt: -1 });
     }
-    async update(id, data) {
+    async update(id, userId, restaurantId, data) {
         const updateData = {};
         if (!mongoose_1.Types.ObjectId.isValid(id))
             return null;
@@ -50,12 +53,12 @@ class OrderService {
         if (data.observations !== undefined) {
             updateData.observations = data.observations;
         }
-        return model_1.OrderModel.findByIdAndUpdate(id, updateData, { new: true });
+        return model_1.OrderModel.findOneAndUpdate({ _id: id, userId, restaurantId }, updateData, { new: true });
     }
-    async deleteById(id) {
+    async deleteById(id, userId, restaurantId) {
         if (!mongoose_1.Types.ObjectId.isValid(id))
             return null;
-        const deleted = await model_1.OrderModel.findByIdAndDelete(id);
+        const deleted = await model_1.OrderModel.findOneAndDelete({ _id: id, userId, restaurantId });
         return deleted;
     }
 }

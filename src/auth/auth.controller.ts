@@ -5,6 +5,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import * as bcrypt from 'bcrypt';
 
 @Controller('auth')
@@ -14,12 +15,16 @@ export class AuthController {
     private usersService: UsersService,
   ) {}
 
+  // Rate limit mais agressivo no login: 5 tentativas por 60 segundos
+  @Throttle({ default: { ttl: 60, limit: 5 } })
   @UseGuards(AuthGuard('local'))
   @Post('login')
   async login(@Req() req) {
     return this.authService.login(req.user);
   }
 
+  // Rate limit mais agressivo no register: 3 registros por 60 segundos
+  @Throttle({ default: { ttl: 60, limit: 3 } })
   @Post('register')
   async register(@Body() body: any) {
     const { username, password, email, name, roles } = body;
@@ -45,6 +50,18 @@ export class AuthController {
     return result;
   }
 
+  @UseGuards(AuthGuard('jwt'))
+  @Post('logout')
+  async logout(@Req() req) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      await this.authService.logout(token);
+    }
+    return { message: 'Logout realizado com sucesso' };
+  }
+
+  @SkipThrottle()
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
   getProfile(@Req() req) {

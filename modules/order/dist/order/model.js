@@ -11,6 +11,7 @@ const OrderItemSchema = new mongoose_1.Schema({
 );
 const OrderSchema = new mongoose_1.Schema({
     restaurantId: { type: String, required: true, index: true },
+    userId: { type: String, required: true, index: true },
     items: {
         type: [OrderItemSchema],
         required: true,

@@ -50,21 +50,11 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "responses": {
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
+          "default": {
+            "description": ""
           }
         }
       },
@@ -97,28 +87,53 @@
         }
       }
     },
-    "/stock/products/{restaurantId}": {
+    "/stock/products": {
       "get": {
         "description": "",
-        "parameters": [
-          {
-            "name": "restaurantId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
-          "default": {
-            "description": ""
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Internal Server Error"
           }
         }
-      }
-    },
-    "/stock/product": {
+      },
       "post": {
+        "description": "",
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "length": {
+                    "example": "any"
+                  },
+                  "map(item": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
         "description": "",
         "parameters": [
           {
@@ -130,8 +145,8 @@
           }
         ],
         "responses": {
-          "201": {
-            "description": "Created"
+          "200": {
+            "description": "OK"
           },
           "400": {
             "description": "Bad Request"
@@ -141,6 +156,52 @@
           },
           "403": {
             "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stock/user/products": {
+      "get": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/stock/product": {
+      "post": {
+        "description": "",
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request"
           },
           "500": {
             "description": "Internal Server Error"
@@ -160,78 +221,10 @@
                   },
                   "quantity": {
                     "example": "any"
-                  },
-                  "restaurantId": {
-                    "example": "any"
                   }
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/stock/products": {
-      "post": {
-        "description": "",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Created"
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "500": {
-            "description": "Internal Server Error"
-          }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "length": {
-                    "example": "any"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "description": "",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
           }
         }
       }
@@ -247,21 +240,11 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "responses": {
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
+          "default": {
+            "description": ""
           }
         }
       }
