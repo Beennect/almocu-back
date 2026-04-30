@@ -20,6 +20,9 @@ export class User {
   @Column('simple-array', { default: 'user' })
   roles: string[];
 
+  @Column('simple-array', { nullable: true })
+  allowedRestaurants: string[];
+
   @CreateDateColumn()
   createdAt: Date;
 

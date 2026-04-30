@@ -27,7 +27,7 @@ export class AuthController {
   @Throttle({ default: { ttl: 60, limit: 3 } })
   @Post('register')
   async register(@Body() body: any) {
-    const { username, password, email, name, roles } = body;
+    const { username, password, email, name, roles, allowedRestaurants } = body;
     
     // Verifica se usuário já existe
     const exists = await this.usersService.findOneByUsername(username);
@@ -44,10 +44,20 @@ export class AuthController {
       email,
       name,
       roles: roles || ['user'],
+      allowedRestaurants: allowedRestaurants || [],
     });
 
     const { password: _, ...result } = user;
     return result;
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('switch-tenant')
+  async switchTenant(@Req() req, @Body() body: { restaurantId: string }) {
+    if (!body.restaurantId) {
+      throw new UnauthorizedException('ID do restaurante é obrigatório');
+    }
+    return this.authService.switchTenant(req.user, body.restaurantId);
   }
 
   @UseGuards(AuthGuard('jwt'))

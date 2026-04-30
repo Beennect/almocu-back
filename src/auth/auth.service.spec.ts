@@ -87,14 +87,14 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    it('deve retornar access_token e dados do usuário', async () => {
+    it('deve retornar access_token e setar restaurantId se tiver apenas 1 allowedRestaurant', async () => {
       const mockUser = {
         id: 'user-id-123',
         username: 'testuser',
         email: 'test@test.com',
         name: 'Test User',
         roles: ['user'],
-        restaurantId: 'rest-id-456',
+        allowedRestaurants: ['rest-id-456'],
       };
       mockJwtService.sign.mockReturnValue('mocked-jwt-token');
 
@@ -104,6 +104,7 @@ describe('AuthService', () => {
       expect(result.user.id).toBe('user-id-123');
       expect(result.user.username).toBe('testuser');
       expect(result.user.restaurantId).toBe('rest-id-456');
+      expect(result.user.needsBranchSelection).toBe(false);
       expect(mockJwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({
           username: 'testuser',
@@ -115,19 +116,26 @@ describe('AuthService', () => {
       );
     });
 
-    it('deve usar restaurantId fallback quando não fornecido', async () => {
+    it('deve deixar restaurantId nulo e exigir seleção de filial se tiver mais de 1', async () => {
       const mockUser = {
         id: 'user-id-123',
         username: 'testuser',
         email: 'test@test.com',
         name: 'Test User',
         roles: ['user'],
+        allowedRestaurants: ['rest-1', 'rest-2'],
       };
       mockJwtService.sign.mockReturnValue('mocked-jwt-token');
 
       const result = await authService.login(mockUser);
 
-      expect(result.user.restaurantId).toBe('65df12345678901234567890');
+      expect(result.user.restaurantId).toBeNull();
+      expect(result.user.needsBranchSelection).toBe(true);
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          restaurantId: null,
+        }),
+      );
     });
   });
 
