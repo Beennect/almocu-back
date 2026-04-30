@@ -1,9 +1,9 @@
 import { ProductService } from "./service";
 import { ProductModel } from "./model";
-import { redis, redisConnected } from "../redis";
+import { redis, redisConnected } from "../config/redis";
 
 jest.mock("./model");
-jest.mock("../redis", () => ({
+jest.mock("../config/redis", () => ({
     redis: {
         get: jest.fn(),
         set: jest.fn(),
