@@ -109,7 +109,7 @@ describe("ProductService", () => {
             (ProductModel.findOneAndUpdate as jest.Mock).mockResolvedValue(null);
 
             await expect(service.updateOne(VALID_ID, "user1", "res1", { name: "Pizza" }))
-                .rejects.toThrow("Produto não encontrado!");
+                .rejects.toThrow("Produto não encontrado nesta filial!");
         });
 
         it("should throw error if ID is invalid", async () => {
