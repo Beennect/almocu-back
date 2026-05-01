@@ -25,11 +25,11 @@ services:
     environment:
       - NODE_ENV=development
       - JWT_SECRET=super-secret-key-123
-      - DATABASE_URL=postgresql://postgres:postgres@auth-db:5432/auth_app
+      - MONGODB_URI=mongodb://mongodb:27017/auth_app
       - REDIS_URI=redis://redis:6379
     depends_on:
-      auth-db:
-        condition: service_healthy
+      mongodb:
+        condition: service_started
       redis:
         condition: service_started
     networks:

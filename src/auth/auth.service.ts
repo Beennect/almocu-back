@@ -1,8 +1,11 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
 import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcrypt';
 import { RedisService } from '../redis/redis.service';
+import { UserRestaurant, UserRestaurantDocument } from '../users/schemas/user-restaurant.schema';
 
 @Injectable()
 export class AuthService {
@@ -10,32 +13,42 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private redisService: RedisService,
+    @InjectModel(UserRestaurant.name)
+    private userRestaurantModel: Model<UserRestaurantDocument>,
   ) {}
 
   async validateUser(username: string, pass: string): Promise<any> {
     const user = await this.usersService.findOneByUsername(username);
     
     if (user && await bcrypt.compare(pass, user.password)) {
-      const { password, ...result } = user;
-      return result;
+      const userObj = user.toObject();
+      return userObj;
     }
     return null;
   }
 
   async login(user: any) {
-    let restaurantId = null;
+    // Buscar todos os restaurantes vinculados ao usuário
+    const userLinks = await this.userRestaurantModel
+      .find({ userId: new Types.ObjectId(user.id), status: 'active' })
+      .exec();
 
-    // Se tiver apenas 1 restaurante permitido (Funcionário comum), já seta no JWT
-    if (user.allowedRestaurants && user.allowedRestaurants.length === 1) {
-      restaurantId = user.allowedRestaurants[0];
+    let restaurantId: string | null = null;
+    let role: string | null = null;
+
+    // Se tiver apenas 1 restaurante, já seleciona automaticamente
+    if (userLinks.length === 1) {
+      restaurantId = userLinks[0].restaurantId.toString();
+      role = userLinks[0].role;
     }
 
     const payload = { 
       username: user.username, 
-      _id: user.id, // Usando _id para compatibilidade com o que o Stock espera
       sub: user.id, 
-      roles: user.roles,
-      restaurantId: restaurantId 
+      _id: user.id,
+      globalRoles: user.globalRoles,
+      restaurantId: restaurantId,
+      role: role
     };
 
     return {
@@ -45,50 +58,59 @@ export class AuthService {
         username: user.username,
         email: user.email,
         name: user.name,
-        roles: user.roles,
-        allowedRestaurants: user.allowedRestaurants || [],
-        restaurantId: payload.restaurantId,
-        needsBranchSelection: user.allowedRestaurants && user.allowedRestaurants.length > 1,
+        globalRoles: user.globalRoles,
+        restaurants: userLinks.map(link => ({
+          restaurantId: link.restaurantId,
+          role: link.role
+        })),
+        activeRestaurantId: restaurantId,
+        activeRole: role,
+        needsRestaurantSelection: userLinks.length > 1 && !restaurantId,
       }
     };
   }
 
   async switchTenant(user: any, targetRestaurantId: string) {
-    // 1. Puxa os dados atualizados do banco para validar segurança
-    const dbUser = await this.usersService.findById(user.id || user._id);
-    if (!dbUser) {
-      throw new UnauthorizedException('Usuário não encontrado');
-    }
+    try {
+      console.log('Iniciando switch-tenant para restaurante:', targetRestaurantId);
+      console.log('Usuário atual no request:', user);
 
-    // 2. Verifica se o usuário tem permissão para esta filial
-    // Se for ADMIN, permitimos (ou podemos checar a lista se o ADMIN tiver lista restrita)
-    const isAdmin = dbUser.roles && dbUser.roles.includes('ADMIN');
-    const isAllowed = dbUser.allowedRestaurants && dbUser.allowedRestaurants.includes(targetRestaurantId);
+      // Validar se o vínculo existe e está ativo
+      const link = await this.userRestaurantModel.findOne({
+        userId: new Types.ObjectId(user.id || user.sub),
+        restaurantId: new Types.ObjectId(targetRestaurantId),
+        status: 'active'
+      }).exec();
 
-    if (!isAdmin && !isAllowed) {
-      throw new UnauthorizedException('Você não tem acesso a esta filial');
-    }
-
-    // 3. Gera um novo payload com o restaurantId definitivo
-    const payload = { 
-      username: dbUser.username, 
-      _id: dbUser.id, 
-      sub: dbUser.id, 
-      roles: dbUser.roles,
-      restaurantId: targetRestaurantId 
-    };
-
-    return {
-      access_token: this.jwtService.sign(payload),
-      user: {
-        id: dbUser.id,
-        username: dbUser.username,
-        email: dbUser.email,
-        name: dbUser.name,
-        roles: dbUser.roles,
-        restaurantId: payload.restaurantId,
+      if (!link) {
+        console.warn('Vínculo não encontrado para User:', user.id, 'e Restaurant:', targetRestaurantId);
+        throw new UnauthorizedException('Você não tem acesso a este restaurante');
       }
-    };
+
+      const payload = { 
+        username: user.username, 
+        sub: user.id || user.sub, 
+        _id: user.id || user.sub,
+        globalRoles: user.globalRoles || ['user'],
+        restaurantId: targetRestaurantId,
+        role: link.role
+      };
+
+      console.log('Novo payload gerado:', payload);
+
+      return {
+        access_token: this.jwtService.sign(payload),
+        user: {
+          id: payload.sub,
+          username: payload.username,
+          activeRestaurantId: targetRestaurantId,
+          activeRole: link.role
+        }
+      };
+    } catch (error) {
+      console.error('ERRO NO SWITCH TENANT:', error);
+      throw error;
+    }
   }
 
   async logout(token: string) {
@@ -101,7 +123,7 @@ export class AuthService {
         }
       }
     } catch (e) {
-      // Ignorar erros de decode
+      // Ignorar erros
     }
   }
 }

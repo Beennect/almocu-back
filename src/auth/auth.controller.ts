@@ -6,8 +6,14 @@ import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
+import { ApiTags, ApiOperation, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import * as bcrypt from 'bcrypt';
+import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 
+import { SwitchTenantDto } from './dto/switch-tenant.dto';
+
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -15,7 +21,8 @@ export class AuthController {
     private usersService: UsersService,
   ) {}
 
-  // Rate limit mais agressivo no login: 5 tentativas por 60 segundos
+  @ApiOperation({ summary: 'Realiza o login do usuário' })
+  @ApiBody({ type: LoginDto })
   @Throttle({ default: { ttl: 60, limit: 5 } })
   @UseGuards(AuthGuard('local'))
   @Post('login')
@@ -23,19 +30,18 @@ export class AuthController {
     return this.authService.login(req.user);
   }
 
-  // Rate limit mais agressivo no register: 3 registros por 60 segundos
+  @ApiOperation({ summary: 'Registra um novo usuário' })
+  @ApiBody({ type: RegisterDto })
   @Throttle({ default: { ttl: 60, limit: 3 } })
   @Post('register')
-  async register(@Body() body: any) {
-    const { username, password, email, name, roles, allowedRestaurants } = body;
+  async register(@Body() registerDto: RegisterDto) {
+    const { username, password, email, name } = registerDto;
     
-    // Verifica se usuário já existe
     const exists = await this.usersService.findOneByUsername(username);
     if (exists) {
       throw new ConflictException('Usuário já existe');
     }
 
-    // Hash da senha antes de salvar
     const hashedPassword = await bcrypt.hash(password, 10);
     
     const user = await this.usersService.create({
@@ -43,23 +49,24 @@ export class AuthController {
       password: hashedPassword,
       email,
       name,
-      roles: roles || ['user'],
-      allowedRestaurants: allowedRestaurants || [],
+      globalRoles: ['user'],
     });
 
-    const { password: _, ...result } = user;
+    const { password: _, ...result } = user.toJSON ? user.toJSON() : user;
     return result;
   }
 
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Troca o restaurante (tenant) ativo' })
+  @ApiBody({ type: SwitchTenantDto })
   @UseGuards(AuthGuard('jwt'))
   @Post('switch-tenant')
-  async switchTenant(@Req() req, @Body() body: { restaurantId: string }) {
-    if (!body.restaurantId) {
-      throw new UnauthorizedException('ID do restaurante é obrigatório');
-    }
-    return this.authService.switchTenant(req.user, body.restaurantId);
+  async switchTenant(@Req() req, @Body() switchTenantDto: SwitchTenantDto) {
+    return this.authService.switchTenant(req.user, switchTenantDto.restaurantId);
   }
 
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Realiza logout (invalida o token)' })
   @UseGuards(AuthGuard('jwt'))
   @Post('logout')
   async logout(@Req() req) {
@@ -71,10 +78,22 @@ export class AuthController {
     return { message: 'Logout realizado com sucesso' };
   }
 
-  @SkipThrottle()
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Retorna os dados do usuário autenticado' })
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
-  getProfile(@Req() req) {
-    return req.user;
+  async getMe(@Req() req) {
+    try {
+      const user = req.user;
+      return {
+        id: user.id,
+        username: user.username,
+        globalRoles: user.globalRoles,
+        activeRole: user.role,
+      };
+    } catch (error) {
+      console.error('ERRO NO GET ME:', error);
+      throw error;
+    }
   }
 }

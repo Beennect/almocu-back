@@ -1,6 +1,6 @@
-# 🚀 Nosherp Monorepo - Microserviços & Gateway
+# 🚀 Almocu Monorepo - Microserviços & Gateway
 
-Bem-vindo ao ecossistema **Nosherp**. Este é um monorepo escalável, organizado em microserviços, com um API Gateway centralizado para autenticação e roteamento inteligente.
+Bem-vindo ao ecossistema **Almocu**. Este é um monorepo escalável, organizado em microserviços, com um API Gateway centralizado para autenticação e roteamento inteligente.
 
 ---
 
