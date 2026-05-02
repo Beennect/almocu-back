@@ -4,6 +4,8 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { RedisService } from '../redis/redis.service';
 import * as bcrypt from 'bcrypt';
+import { getModelToken } from '@nestjs/mongoose';
+import { UserRestaurant } from '../users/schemas/user-restaurant.schema';
 
 describe('AuthService', () => {
   let authService: AuthService;
@@ -25,6 +27,15 @@ describe('AuthService', () => {
     isBlacklisted: jest.fn(),
   };
 
+  const mockUserRestaurantModel = {
+    find: jest.fn().mockReturnValue({
+      exec: jest.fn().mockResolvedValue([]),
+    }),
+    findOne: jest.fn().mockReturnValue({
+      exec: jest.fn().mockResolvedValue(null),
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -32,6 +43,10 @@ describe('AuthService', () => {
         { provide: UsersService, useValue: mockUsersService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: RedisService, useValue: mockRedisService },
+        {
+          provide: getModelToken(UserRestaurant.name),
+          useValue: mockUserRestaurantModel,
+        },
       ],
     }).compile();
 
@@ -47,11 +62,17 @@ describe('AuthService', () => {
     it('deve retornar o usuário sem a senha quando credenciais são válidas', async () => {
       const hashedPassword = await bcrypt.hash('password123', 10);
       const mockUser = {
-        id: '1',
+        id: '507f1f77bcf86cd799439011',
         username: 'testuser',
         password: hashedPassword,
         email: 'test@test.com',
         roles: ['user'],
+        toObject: jest.fn().mockReturnValue({
+          id: '507f1f77bcf86cd799439011',
+          username: 'testuser',
+          email: 'test@test.com',
+          roles: ['user'],
+        }),
       };
       mockUsersService.findOneByUsername.mockResolvedValue(mockUser);
 
@@ -89,48 +110,57 @@ describe('AuthService', () => {
   describe('login', () => {
     it('deve retornar access_token e setar restaurantId se tiver apenas 1 allowedRestaurant', async () => {
       const mockUser = {
-        id: 'user-id-123',
+        id: '507f1f77bcf86cd799439011',
         username: 'testuser',
         email: 'test@test.com',
         name: 'Test User',
         roles: ['user'],
-        allowedRestaurants: ['rest-id-456'],
       };
       mockJwtService.sign.mockReturnValue('mocked-jwt-token');
+      mockUserRestaurantModel.find.mockReturnValue({
+        exec: jest.fn().mockResolvedValue([
+          { restaurantId: '507f191e810c19729de860ea', role: 'admin' }
+        ]),
+      });
 
       const result = await authService.login(mockUser);
 
       expect(result.access_token).toBe('mocked-jwt-token');
-      expect(result.user.id).toBe('user-id-123');
+      expect(result.user.id).toBe('507f1f77bcf86cd799439011');
       expect(result.user.username).toBe('testuser');
-      expect(result.user.restaurantId).toBe('rest-id-456');
-      expect(result.user.needsBranchSelection).toBe(false);
+      expect(result.user.activeRestaurantId).toBe('507f191e810c19729de860ea');
+      expect(result.user.needsRestaurantSelection).toBe(false);
       expect(mockJwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({
           username: 'testuser',
-          _id: 'user-id-123',
-          sub: 'user-id-123',
-          roles: ['user'],
-          restaurantId: 'rest-id-456',
+          _id: '507f1f77bcf86cd799439011',
+          sub: '507f1f77bcf86cd799439011',
+          restaurantId: '507f191e810c19729de860ea',
+          role: 'admin'
         }),
       );
     });
 
     it('deve deixar restaurantId nulo e exigir seleção de filial se tiver mais de 1', async () => {
       const mockUser = {
-        id: 'user-id-123',
+        id: '507f1f77bcf86cd799439011',
         username: 'testuser',
         email: 'test@test.com',
         name: 'Test User',
         roles: ['user'],
-        allowedRestaurants: ['rest-1', 'rest-2'],
       };
       mockJwtService.sign.mockReturnValue('mocked-jwt-token');
+      mockUserRestaurantModel.find.mockReturnValue({
+        exec: jest.fn().mockResolvedValue([
+          { restaurantId: '507f191e810c19729de860ea', role: 'admin' },
+          { restaurantId: '507f191e810c19729de860eb', role: 'user' }
+        ]),
+      });
 
       const result = await authService.login(mockUser);
 
-      expect(result.user.restaurantId).toBeNull();
-      expect(result.user.needsBranchSelection).toBe(true);
+      expect(result.user.activeRestaurantId).toBeNull();
+      expect(result.user.needsRestaurantSelection).toBe(true);
       expect(mockJwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({
           restaurantId: null,
