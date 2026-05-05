@@ -4,12 +4,14 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../redis/redis.service';
 import { Request } from 'express';
+import { AuthService } from './auth.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private configService: ConfigService,
     private redisService: RedisService,
+    private authService: AuthService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -29,13 +31,30 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
 
+    let restaurantId = payload.restaurantId;
+    let role = payload.role;
+
+    // Lógica Dinâmica: Se for enviado um x-restaurant-id no header, validamos na hora
+    const headerRestaurantId = req.headers['x-restaurant-id'] as string;
+    
+    if (headerRestaurantId && headerRestaurantId !== restaurantId) {
+      const link = await this.authService.validateUserRestaurantAccess(payload.sub, headerRestaurantId);
+      restaurantId = headerRestaurantId;
+      role = link.role;
+    }
+
+    if (!restaurantId && !payload.globalRoles?.includes('admin')) {
+       // Opcional: avisar que não há contexto de restaurante, mas não travar aqui 
+       // Deixa o RolesGuard travar se a rota exigir.
+    }
+
     return { 
       id: payload.sub, 
       _id: payload.sub, 
       username: payload.username, 
       globalRoles: payload.globalRoles,
-      restaurantId: payload.restaurantId,
-      role: payload.role 
+      restaurantId: restaurantId,
+      role: role 
     };
   }
 }

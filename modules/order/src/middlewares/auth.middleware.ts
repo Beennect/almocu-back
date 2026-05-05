@@ -15,11 +15,24 @@ export const authMiddleware = (roles: string[] = []) => {
 
     try {
       const decoded: any = jwt.verify(token, JWT_SECRET);
-      (req as any).user = decoded;
+      
+      // Prioritizar contexto injetado pelo Gateway (x-tenant-id)
+      const restaurantId = req.headers['x-tenant-id'] || req.headers['x-restaurant-id'] || decoded.restaurantId;
+      const role = req.headers['x-user-role'] || decoded.role;
+
+      (req as any).user = {
+        ...decoded,
+        restaurantId,
+        role
+      };
 
       if (roles.length > 0) {
-        const userRoles = decoded.roles || [];
-        const hasRole = roles.some(role => userRoles.includes(role));
+        // Se o gateway passou x-user-role, usamos ele para a validação de cargo
+        const activeRole = (req as any).user.role;
+        const globalRoles = decoded.globalRoles || [];
+        
+        const hasRole = roles.includes(activeRole) || roles.some(r => globalRoles.includes(r));
+        
         if (!hasRole) {
           return res.status(403).json({ message: 'Acesso negado: cargo insuficiente' });
         }

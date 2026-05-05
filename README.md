@@ -35,7 +35,6 @@ O **Gateway (Porta 3000)** é a porta de entrada única da aplicação. Você **
 | **Stock Service** | `http://localhost:3000/api/stock/*` | Ex: `GET /api/stock/product/user/all` |
 | **Menu Service** | `http://localhost:3000/api/menu/*` | Ex: `POST /api/menu/product` |
 | **Order Service** | `http://localhost:3000/api/order/*` | Ex: `GET /api/order/orders/user/all` |
-| **Netdata** | `http://localhost:19999` | Dashboard de Monitoramento da Infraestrutura |
 
 > **Nota de Segurança:** Todas as rotas `/api/*` e `/auth/logout` exigem um token JWT válido enviado no cabeçalho `Authorization: Bearer <token>`.
 
@@ -43,9 +42,10 @@ O **Gateway (Porta 3000)** é a porta de entrada única da aplicação. Você **
 
 ## 🛡️ Segurança e Multi-Tenancy
 
-* **Isolamento de Dados (Multi-Tenant):** Todos os dados (Estoque, Menu e Pedidos) são separados usando o `userId` e o `restaurantId` extraídos criptograficamente do token JWT.
-* **Blacklist de Tokens:** Ao fazer requisição para `/auth/logout`, o token é invalidado imediatamente e colocado em uma lista negra no **Redis** até sua expiração.
-* **Rate Limiting:** A API está protegida por limites de taxa (Throttling) em nível de gateway. O limite de tentativas de login é de 5/minuto e registro 3/minuto.
+* **Isolamento de Dados (Multi-Tenant):** Todos os dados são separados usando o `restaurantId`. O sistema suporta **Tenancy Dinâmica** via cabeçalho `x-restaurant-id`.
+* **Tenancy Dinâmica:** Você pode alternar o contexto do restaurante em qualquer requisição enviando o header `x-restaurant-id: <id_do_restaurante>`. O Gateway validará automaticamente se o usuário possui acesso ao restaurante solicitado antes de proxiar a requisição.
+* **Blacklist de Tokens:** Ao fazer logout, o token é invalidado imediatamente via **Redis**.
+* **Rate Limiting:** Proteção contra força bruta e excesso de requisições via NestJS Throttler.
 
 ---
 
@@ -55,11 +55,11 @@ O projeto utiliza variáveis de ambiente para conexões de banco e segredos. Cer
 
 ### Gateway (`.env` na raiz)
 ```env
-# Banco de Dados Auth (PostgreSQL)
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=sua_senha
-POSTGRES_DB=auth_db
-DATABASE_URL="postgresql://postgres:sua_senha@auth-db:5432/auth_db"
+# Banco de Dados Auth (MongoDB)
+MONGODB_URI=mongodb://mongodb:27017/auth_app
+
+# Cache e Sessão (Redis)
+REDIS_URI=redis://redis:6379
 
 # Autenticação
 JWT_SECRET=super-secret-key-123
@@ -91,13 +91,9 @@ sudo docker-compose down -v --remove-orphans
 
 ---
 
-## 📊 Monitoramento Premium
-
-Instalamos o **Netdata** para você acompanhar o batimento cardíaco do sistema.
-*   **Link Local:** [http://localhost:19999](http://localhost:19999)
-*   **O que ver:** Procure a seção **"Containers"** na barra lateral para ver gráficos de CPU/RAM de cada microserviço em tempo real.
-
 ---
+
+⚡ *Desenvolvido com foco em alta performance e escalabilidade.*
 
 ## 📝 Notas de Desenvolvimento
 - **Hot-Reload:** Os microserviços possuem volumes mapeados. Qualquer alteração em `modules/*/src` refletirá instantaneamente nos containers.

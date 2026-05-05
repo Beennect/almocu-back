@@ -21,25 +21,47 @@ export class AuthService {
     const user = await this.usersService.findOneByUsername(username);
     
     if (user && await bcrypt.compare(pass, user.password)) {
+      if (!user.isActive) {
+        throw new UnauthorizedException('Sua conta está desativada');
+      }
       const userObj = user.toObject();
       return userObj;
     }
     return null;
   }
 
-  async login(user: any) {
-    // Buscar todos os restaurantes vinculados ao usuário
+  async login(user: any, requestedRestaurantId?: string) {
+    // Buscar todos os restaurantes vinculados ao usuário e popular dados do restaurante
     const userLinks = await this.userRestaurantModel
       .find({ userId: new Types.ObjectId(user.id), status: 'active' })
+      .populate('restaurantId')
       .exec();
 
     let restaurantId: string | null = null;
     let role: string | null = null;
 
-    // Se tiver apenas 1 restaurante, já seleciona automaticamente
-    if (userLinks.length === 1) {
-      restaurantId = userLinks[0].restaurantId.toString();
-      role = userLinks[0].role;
+    // Se um ID foi solicitado, validamos se o usuário tem acesso
+    if (requestedRestaurantId) {
+      const link = userLinks.find(l => (l.restaurantId as any)._id.toString() === requestedRestaurantId);
+      
+      if (!link) {
+        throw new UnauthorizedException('Você não tem acesso a este restaurante');
+      }
+
+      if ((link.restaurantId as any).status !== 'active') {
+        throw new UnauthorizedException('Este restaurante está inativo ou suspenso');
+      }
+
+      restaurantId = requestedRestaurantId;
+      role = link.role;
+    } 
+    // Se não foi solicitado e tiver apenas 1 restaurante, seleciona automaticamente se estiver ativo
+    else if (userLinks.length === 1) {
+      const singleLink = userLinks[0];
+      if ((singleLink.restaurantId as any).status === 'active') {
+        restaurantId = (singleLink.restaurantId as any)._id.toString();
+        role = singleLink.role;
+      }
     }
 
     const payload = { 
@@ -59,15 +81,39 @@ export class AuthService {
         email: user.email,
         name: user.name,
         globalRoles: user.globalRoles,
-        restaurants: userLinks.map(link => ({
-          restaurantId: link.restaurantId,
-          role: link.role
-        })),
+        restaurants: userLinks
+          .filter(link => link.restaurantId) // Garantir que o restaurante ainda existe
+          .map(link => ({
+            id: (link.restaurantId as any)._id || (link.restaurantId as any).id,
+            name: (link.restaurantId as any).name,
+            role: link.role,
+            status: (link.restaurantId as any).status,
+          })),
         activeRestaurantId: restaurantId,
         activeRole: role,
         needsRestaurantSelection: userLinks.length > 1 && !restaurantId,
       }
     };
+  }
+
+  async validateUserRestaurantAccess(userId: string, restaurantId: string) {
+    const link = await this.userRestaurantModel.findOne({
+      userId: new Types.ObjectId(userId),
+      restaurantId: new Types.ObjectId(restaurantId),
+      status: 'active'
+    })
+    .populate('restaurantId')
+    .exec();
+
+    if (!link || !link.restaurantId) {
+      throw new UnauthorizedException('Você não tem acesso a este restaurante');
+    }
+
+    if ((link.restaurantId as any).status !== 'active') {
+      throw new UnauthorizedException('Este restaurante está inativo ou suspenso');
+    }
+
+    return link;
   }
 
   async switchTenant(user: any, targetRestaurantId: string) {
@@ -80,11 +126,17 @@ export class AuthService {
         userId: new Types.ObjectId(user.id || user.sub),
         restaurantId: new Types.ObjectId(targetRestaurantId),
         status: 'active'
-      }).exec();
+      })
+      .populate('restaurantId')
+      .exec();
 
-      if (!link) {
+      if (!link || !link.restaurantId) {
         console.warn('Vínculo não encontrado para User:', user.id, 'e Restaurant:', targetRestaurantId);
         throw new UnauthorizedException('Você não tem acesso a este restaurante');
+      }
+
+      if ((link.restaurantId as any).status !== 'active') {
+        throw new UnauthorizedException('Este restaurante está inativo ou suspenso');
       }
 
       const payload = { 
