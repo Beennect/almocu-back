@@ -29,10 +29,14 @@ describe('AuthService', () => {
 
   const mockUserRestaurantModel = {
     find: jest.fn().mockReturnValue({
-      exec: jest.fn().mockResolvedValue([]),
+      populate: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue([]),
+      }),
     }),
     findOne: jest.fn().mockReturnValue({
-      exec: jest.fn().mockResolvedValue(null),
+      populate: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      }),
     }),
   };
 
@@ -66,6 +70,7 @@ describe('AuthService', () => {
         username: 'testuser',
         password: hashedPassword,
         email: 'test@test.com',
+        isActive: true,
         roles: ['user'],
         toObject: jest.fn().mockReturnValue({
           id: '507f1f77bcf86cd799439011',
@@ -118,9 +123,11 @@ describe('AuthService', () => {
       };
       mockJwtService.sign.mockReturnValue('mocked-jwt-token');
       mockUserRestaurantModel.find.mockReturnValue({
-        exec: jest.fn().mockResolvedValue([
-          { restaurantId: '507f191e810c19729de860ea', role: 'admin' }
-        ]),
+        populate: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue([
+            { restaurantId: { _id: '507f191e810c19729de860ea', name: 'Restaurante A', status: 'active' }, role: 'admin' }
+          ]),
+        }),
       });
 
       const result = await authService.login(mockUser);
@@ -151,10 +158,12 @@ describe('AuthService', () => {
       };
       mockJwtService.sign.mockReturnValue('mocked-jwt-token');
       mockUserRestaurantModel.find.mockReturnValue({
-        exec: jest.fn().mockResolvedValue([
-          { restaurantId: '507f191e810c19729de860ea', role: 'admin' },
-          { restaurantId: '507f191e810c19729de860eb', role: 'user' }
-        ]),
+        populate: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue([
+            { restaurantId: { _id: '507f191e810c19729de860ea', name: 'Restaurante A', status: 'active' }, role: 'admin' },
+            { restaurantId: { _id: '507f191e810c19729de860eb', name: 'Restaurante B', status: 'active' }, role: 'user' }
+          ]),
+        }),
       });
 
       const result = await authService.login(mockUser);
