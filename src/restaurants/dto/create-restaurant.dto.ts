@@ -12,6 +12,10 @@ export class CreateRestaurantDto {
   @IsNotEmpty()
   @Matches(/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/, { message: 'CNPJ inválido (Formato esperado: 00.000.000/0000-00)' })
   cnpj: string;
+
+  @ApiProperty({ example: 3, description: 'Quantidade máxima de locais (filiais) permitidas', default: 1 })
+  @IsOptional()
+  maxBranches?: number;
 }
 
 export class CreateBranchDto {

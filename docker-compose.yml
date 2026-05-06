@@ -42,7 +42,10 @@ services:
   stock-app:
     build: ./modules/stock
     volumes:
-      - ./modules/stock:/app:Z
+      - ./modules/stock/src:/app/src:Z
+      - ./modules/stock/package.json:/app/package.json:Z
+      - ./modules/stock/tsconfig.json:/app/tsconfig.json:Z
+      - ./modules/stock/nest-cli.json:/app/nest-cli.json:Z
       - /app/node_modules
     environment:
       - PORT=3000
@@ -54,14 +57,17 @@ services:
         condition: service_healthy
     ports:
       - "3100:3000"
-    command: ["npm", "run", "dev"]
+    command: ["npm", "run", "start:dev"]
     networks:
       - almoco_network
 
   menu-app:
     build: ./modules/menu
     volumes:
-      - ./modules/menu:/app:Z
+      - ./modules/menu/src:/app/src:Z
+      - ./modules/menu/package.json:/app/package.json:Z
+      - ./modules/menu/tsconfig.json:/app/tsconfig.json:Z
+      - ./modules/menu/nest-cli.json:/app/nest-cli.json:Z
       - /app/node_modules
     ports:
       - "3200:3000"
@@ -74,15 +80,18 @@ services:
     depends_on:
       - mongodb
       - redis
-    command: ["npm", "run", "dev"]
+    command: ["npm", "run", "start:dev"]
     networks:
       - almoco_network
 
   order-app:
     build: ./modules/order
     volumes:
-      - ./modules/order:/app:Z
-      - /app/node_modules
+      - ./modules/order/src:/app/src:Z
+      - ./modules/order/package.json:/app/package.json:Z
+      - ./modules/order/tsconfig.json:/app/tsconfig.json:Z
+      - ./modules/order/nest-cli.json:/app/nest-cli.json:Z
+      - ./modules/order/test:/app/test:Z
     depends_on:
       - mongodb
     ports:
@@ -94,7 +103,7 @@ services:
       - NODE_ENV=development
     networks:
       - almoco_network
-    command: ["npm", "run", "dev"]
+    command: ["npm", "run", "start:dev"]
 
 
 networks:

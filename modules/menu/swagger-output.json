@@ -81,6 +81,9 @@
           "400": {
             "description": "Bad Request"
           },
+          "404": {
+            "description": "Not Found"
+          },
           "409": {
             "description": "Conflict"
           },
@@ -171,6 +174,22 @@
     "/product/": {
       "get": {
         "description": "",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"

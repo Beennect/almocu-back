@@ -15,7 +15,7 @@
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:all": "npm test && npm test --prefix modules/menu && npm test --prefix modules/stock && npm test --prefix modules/order",
-    "test:smoke": "ts-node tests/smoke.test.ts",
+    "test:smoke": "ts-node test/smoke.e2e-spec.ts",
     "build:all": "npm run build && npm run build --prefix modules/menu && npm run build --prefix modules/stock && npm run build --prefix modules/order",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",

@@ -19,7 +19,12 @@ export class RestaurantsController {
   @ApiBody({ type: CreateRestaurantDto })
   @Post()
   async create(@Req() req, @Body() createDto: CreateRestaurantDto) {
-    return this.restaurantsService.create(createDto.name, createDto.cnpj, req.user.id);
+    return this.restaurantsService.create(
+      createDto.name, 
+      createDto.cnpj, 
+      req.user.id, 
+      createDto.maxBranches
+    );
   }
 
   @ApiOperation({ summary: 'Cria uma nova filial vinculada a um restaurante master' })

@@ -1,40 +1,70 @@
 {
-  "name": "nosherp",
+  "name": "almoco-menu",
   "version": "1.0.0",
-  "description": "erp de comida",
-  "license": "ISC",
+  "description": "Menu microservice for Almoco app",
   "author": "",
-  "type": "commonjs",
-  "main": "index.js",
+  "private": true,
+  "license": "UNLICENSED",
   "scripts": {
+    "build": "nest build",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:debug": "nest start --debug --watch",
+    "start:prod": "node dist/main",
+    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
-    "build": "tsc",
-    "start": "node ./dist/index.js",
-    "dev": "NODE_ENV=development npx nodemon --watch src --ext ts,js --exec \"node swagger.js && npx ts-node ./src/index.ts\"",
-    "swagger": "node swagger.js"
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage",
+    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
+    "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "class-validator": "^0.15.1",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3",
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/config": "^3.0.0",
+    "@nestjs/core": "^10.0.0",
+    "@nestjs/mongoose": "^10.0.0",
+    "@nestjs/platform-express": "^10.0.0",
+    "@nestjs/swagger": "^7.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.0",
     "mongoose": "^8.0.0",
-    "redis": "^5.11.0",
-    "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "redis": "^4.6.0",
+    "reflect-metadata": "^0.1.13",
+    "rxjs": "^7.8.1"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6",
-    "@types/jest": "^29.5.12",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^25.3.3",
-    "@types/swagger-jsdoc": "^6.0.4",
-    "@types/swagger-ui-express": "^4.1.8",
-    "jest": "^29.7.0",
-    "nodemon": "^3.1.14",
-    "swagger-autogen": "^2.23.7",
-    "ts-jest": "^29.1.2",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "@nestjs/cli": "^10.0.0",
+    "@nestjs/schematics": "^10.0.0",
+    "@nestjs/testing": "^10.0.0",
+    "@types/express": "^4.17.17",
+    "@types/jest": "^29.5.2",
+    "@types/node": "^20.3.1",
+    "@types/supertest": "^2.0.12",
+    "jest": "^29.5.0",
+    "source-map-support": "^0.5.21",
+    "supertest": "^6.3.3",
+    "ts-jest": "^29.1.0",
+    "ts-loader": "^9.4.3",
+    "ts-node": "^10.9.1",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.1.3"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "collectCoverageFrom": [
+      "**/*.(t|j)s"
+    ],
+    "coverageDirectory": "../coverage",
+    "testEnvironment": "node"
   }
 }

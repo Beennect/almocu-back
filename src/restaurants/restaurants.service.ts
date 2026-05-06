@@ -13,7 +13,7 @@ export class RestaurantsService {
     private userRestaurantModel: Model<UserRestaurantDocument>,
   ) {}
 
-  async create(name: string, cnpj: string, ownerId: string): Promise<RestaurantDocument> {
+  async create(name: string, cnpj: string, ownerId: string, maxBranches: number = 1): Promise<RestaurantDocument> {
     // Gerar um código de convite único
     const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
@@ -22,7 +22,7 @@ export class RestaurantsService {
       cnpj,
       inviteCode,
       plan: 'BASIC',
-      maxBranches: 1, // Plano inicial padrão
+      maxBranches: maxBranches || 1, // Permite definir o limite na criação
     });
     const savedRestaurant = await restaurant.save();
 
