@@ -34,6 +34,7 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 ARG APP_NAME=auth
+ENV APP_NAME=${APP_NAME}
 
 # Metadado para identificar qual serviço está na imagem
 LABEL service="${APP_NAME}"
@@ -42,9 +43,10 @@ LABEL service="${APP_NAME}"
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/package.json ./package.json
 
-# Só o dist do app específico
-COPY --from=build /app/dist/apps/${APP_NAME} ./dist
+# Só o dist do app específico - mantendo a estrutura para evitar problemas de path
+COPY --from=build /app/dist ./dist
 
 EXPOSE 3000
 
-CMD ["node", "dist/main.js"]
+# Executa usando o caminho completo do app dentro da dist
+ENTRYPOINT ["sh", "-c", "node dist/apps/${APP_NAME}/main.js"]
