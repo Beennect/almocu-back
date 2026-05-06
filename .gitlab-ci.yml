@@ -1,0 +1,51 @@
+stages:
+  - test
+  - build
+
+variables:
+  # Configurações para os testes (ajuste se necessário)
+  MONGODB_URI: "mongodb://mongodb:27017/almoco_test"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  JWT_SECRET: "ci-test-secret-123"
+
+test-monorepo:
+  stage: test
+  image: node:20
+  services:
+    - name: mongo:6
+      alias: mongodb
+    - name: redis:7
+      alias: redis
+  cache:
+    paths:
+      - node_modules/
+  before_script:
+    - npm ci
+  script:
+    - echo "Rodando todos os testes do monorepo..."
+    - npm run test
+  artifacts:
+    when: always
+    paths:
+      - coverage/
+    expire_in: 1 week
+
+build-images:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - echo "Fazendo build das imagens usando Docker Compose..."
+    # O GitLab já injeta variáveis de ambiente que podemos usar no build
+    - docker compose build
+    # Se quiser dar push:
+    # - docker compose push
+  only:
+    - main
+    - develop

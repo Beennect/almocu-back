@@ -6,48 +6,43 @@ import {
   Patch,
   Param,
   Delete,
-  Headers,
-  BadRequestException,
+  UseGuards,
+  Req,
 } from '@nestjs/common';
 import { OrderService } from './order.service';
 import { CreateOrderDto, UpdateOrderStatusDto } from './dto/create-order.dto';
-import { ApiTags, ApiOperation, ApiHeader } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '@app/common';
 
 @ApiTags('orders')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('orders')
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 
   @Post()
   @ApiOperation({ summary: 'Cria um novo pedido' })
-  @ApiHeader({ name: 'x-user-id', required: true })
-  @ApiHeader({ name: 'x-tenant-id', required: true })
   create(
-    @Headers('x-user-id') userId: string,
-    @Headers('x-tenant-id') restaurantId: string,
+    @Req() req: any,
     @Body() createOrderDto: CreateOrderDto,
   ) {
-    if (!userId || !restaurantId) {
-      throw new BadRequestException('User ID and Tenant ID are required');
-    }
+    const userId = req.user.id;
+    const restaurantId = req.user.restaurantId;
     return this.orderService.create(userId, restaurantId, createOrderDto);
   }
 
   @Get()
   @ApiOperation({ summary: 'Lista todos os pedidos do restaurante' })
-  findAll(@Headers('x-tenant-id') restaurantId: string) {
-    if (!restaurantId) {
-      throw new BadRequestException('Tenant ID is required');
-    }
+  findAll(@Req() req: any) {
+    const restaurantId = req.user.restaurantId;
     return this.orderService.findAllByRestaurant(restaurantId);
   }
 
   @Get('user')
   @ApiOperation({ summary: 'Lista todos os pedidos do usuário logado' })
-  findAllByUser(@Headers('x-user-id') userId: string) {
-    if (!userId) {
-      throw new BadRequestException('User ID is required');
-    }
+  findAllByUser(@Req() req: any) {
+    const userId = req.user.id;
     return this.orderService.findAllByUser(userId);
   }
 
@@ -55,9 +50,10 @@ export class OrderController {
   @ApiOperation({ summary: 'Busca um pedido pelo ID' })
   findOne(
     @Param('id') id: string,
-    @Headers('x-user-id') userId: string,
-    @Headers('x-tenant-id') restaurantId: string,
+    @Req() req: any,
   ) {
+    const userId = req.user.id;
+    const restaurantId = req.user.restaurantId;
     return this.orderService.findOne(id, userId, restaurantId);
   }
 
@@ -65,16 +61,18 @@ export class OrderController {
   @ApiOperation({ summary: 'Atualiza o status de um pedido' })
   updateStatus(
     @Param('id') id: string,
-    @Headers('x-user-id') userId: string,
-    @Headers('x-tenant-id') restaurantId: string,
+    @Req() req: any,
     @Body() updateStatusDto: UpdateOrderStatusDto,
   ) {
+    const userId = req.user.id;
+    const restaurantId = req.user.restaurantId;
     return this.orderService.updateStatus(id, userId, restaurantId, updateStatusDto.status);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Deleta um pedido' })
-  remove(@Param('id') id: string, @Headers('x-tenant-id') restaurantId: string) {
+  remove(@Param('id') id: string, @Req() req: any) {
+    const restaurantId = req.user.restaurantId;
     return this.orderService.remove(id, restaurantId);
   }
 }

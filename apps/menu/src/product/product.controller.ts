@@ -1,35 +1,35 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Headers, Query, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, Req } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
-import { ApiTags, ApiOperation, ApiHeader } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '@app/common';
 
 @ApiTags('products')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('products')
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
   @Post()
   @ApiOperation({ summary: 'Cria um novo produto no cardápio' })
-  @ApiHeader({ name: 'x-user-id', required: true })
-  @ApiHeader({ name: 'x-tenant-id', required: true })
   create(
     @Body() createProductDto: CreateProductDto,
-    @Headers('x-user-id') userId: string,
-    @Headers('x-tenant-id') restaurantId: string,
+    @Req() req: any,
   ) {
-    if (!userId || !restaurantId) throw new BadRequestException('Headers de autenticação ausentes.');
+    const userId = req.user.id;
+    const restaurantId = req.user.restaurantId;
     return this.productService.create(createProductDto, userId, restaurantId);
   }
 
   @Get()
   @ApiOperation({ summary: 'Lista produtos do cardápio com paginação e cache' })
-  @ApiHeader({ name: 'x-tenant-id', required: true })
   findAll(
-    @Headers('x-tenant-id') restaurantId: string,
+    @Req() req: any,
     @Query('page') page: string,
     @Query('limit') limit: string,
   ) {
-    if (!restaurantId) throw new BadRequestException('Header de restaurante ausente.');
+    const restaurantId = req.user.restaurantId;
     return this.productService.findAll(
       restaurantId,
       parseInt(page) || 1,
@@ -39,26 +39,26 @@ export class ProductController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Busca um produto específico' })
-  @ApiHeader({ name: 'x-tenant-id', required: true })
-  findOne(@Param('id') id: string, @Headers('x-tenant-id') restaurantId: string) {
+  findOne(@Param('id') id: string, @Req() req: any) {
+    const restaurantId = req.user.restaurantId;
     return this.productService.findOne(id, restaurantId);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Atualiza um produto' })
-  @ApiHeader({ name: 'x-tenant-id', required: true })
   update(
     @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
-    @Headers('x-tenant-id') restaurantId: string,
+    @Req() req: any,
   ) {
+    const restaurantId = req.user.restaurantId;
     return this.productService.update(id, updateProductDto, restaurantId);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Remove um produto do cardápio' })
-  @ApiHeader({ name: 'x-tenant-id', required: true })
-  remove(@Param('id') id: string, @Headers('x-tenant-id') restaurantId: string) {
+  remove(@Param('id') id: string, @Req() req: any) {
+    const restaurantId = req.user.restaurantId;
     return this.productService.remove(id, restaurantId);
   }
 }

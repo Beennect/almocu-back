@@ -1,35 +1,35 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Headers, Query, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, Req } from '@nestjs/common';
 import { StockService } from './stock.service';
 import { CreateStockDto, UpdateStockDto, AdjustStockDto } from './dto/stock.dto';
-import { ApiTags, ApiOperation, ApiHeader } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '@app/common';
 
 @ApiTags('stock')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('stock')
 export class StockController {
   constructor(private readonly stockService: StockService) {}
 
   @Post()
   @ApiOperation({ summary: 'Cria um novo item no estoque' })
-  @ApiHeader({ name: 'x-user-id', required: true })
-  @ApiHeader({ name: 'x-tenant-id', required: true })
   create(
     @Body() createStockDto: CreateStockDto,
-    @Headers('x-user-id') userId: string,
-    @Headers('x-tenant-id') restaurantId: string,
+    @Req() req: any,
   ) {
-    if (!userId || !restaurantId) throw new BadRequestException('Headers de autenticação ausentes.');
+    const userId = req.user.id;
+    const restaurantId = req.user.restaurantId;
     return this.stockService.create(createStockDto, userId, restaurantId);
   }
 
   @Get()
   @ApiOperation({ summary: 'Lista itens do estoque com paginação' })
-  @ApiHeader({ name: 'x-tenant-id', required: true })
   findAll(
-    @Headers('x-tenant-id') restaurantId: string,
+    @Req() req: any,
     @Query('page') page: string,
     @Query('limit') limit: string,
   ) {
-    if (!restaurantId) throw new BadRequestException('Header de restaurante ausente.');
+    const restaurantId = req.user.restaurantId;
     return this.stockService.findAll(
       restaurantId,
       parseInt(page) || 1,
@@ -39,37 +39,37 @@ export class StockController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Busca um item específico' })
-  @ApiHeader({ name: 'x-tenant-id', required: true })
-  findOne(@Param('id') id: string, @Headers('x-tenant-id') restaurantId: string) {
+  findOne(@Param('id') id: string, @Req() req: any) {
+    const restaurantId = req.user.restaurantId;
     return this.stockService.findOne(id, restaurantId);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Atualiza detalhes de um item' })
-  @ApiHeader({ name: 'x-tenant-id', required: true })
   update(
     @Param('id') id: string,
     @Body() updateStockDto: UpdateStockDto,
-    @Headers('x-tenant-id') restaurantId: string,
+    @Req() req: any,
   ) {
+    const restaurantId = req.user.restaurantId;
     return this.stockService.update(id, updateStockDto, restaurantId);
   }
 
   @Patch(':id/adjust')
   @ApiOperation({ summary: 'Ajusta a quantidade (entrada/saída) de um item' })
-  @ApiHeader({ name: 'x-tenant-id', required: true })
   adjust(
     @Param('id') id: string,
     @Body() adjustStockDto: AdjustStockDto,
-    @Headers('x-tenant-id') restaurantId: string,
+    @Req() req: any,
   ) {
+    const restaurantId = req.user.restaurantId;
     return this.stockService.adjustQuantity(id, adjustStockDto.delta, restaurantId);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Remove um item do estoque' })
-  @ApiHeader({ name: 'x-tenant-id', required: true })
-  remove(@Param('id') id: string, @Headers('x-tenant-id') restaurantId: string) {
+  remove(@Param('id') id: string, @Req() req: any) {
+    const restaurantId = req.user.restaurantId;
     return this.stockService.remove(id, restaurantId);
   }
 }
