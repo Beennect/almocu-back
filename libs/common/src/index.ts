@@ -1,4 +1,3 @@
-// Biblioteca de código compartilhado entre os apps do monorepo
-// Adicione exports aqui conforme for extraindo código comum
-
-export {};
+export { JwtAuthModule } from './modules/jwt-auth.module';
+export { JwtAuthGuard } from './guards/jwt-auth.guard';
+export { JwtStrategy } from './strategies/jwt.strategy';

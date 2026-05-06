@@ -2,12 +2,11 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { StockModule } from './stock/stock.module';
+import { JwtAuthModule } from '@app/common';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
+    ConfigModule.forRoot({ isGlobal: true }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -15,6 +14,7 @@ import { StockModule } from './stock/stock.module';
       }),
       inject: [ConfigService],
     }),
+    JwtAuthModule,
     StockModule,
   ],
 })
