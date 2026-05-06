@@ -43,10 +43,10 @@ LABEL service="${APP_NAME}"
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/package.json ./package.json
 
-# Só o dist do app específico - mantendo a estrutura para evitar problemas de path
-COPY --from=build /app/dist ./dist
+# Só o dist do app específico
+COPY --from=build /app/dist/apps/${APP_NAME} ./dist
 
 EXPOSE 3000
 
-# Executa usando o caminho completo do app dentro da dist
-ENTRYPOINT ["sh", "-c", "node dist/apps/${APP_NAME}/main.js"]
+# Encontra o main.js dinamicamente e executa (resolve problemas de estrutura aninhada)
+CMD ["sh", "-c", "node $(find dist -name main.js | head -n 1)"]
