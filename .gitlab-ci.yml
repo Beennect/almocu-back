@@ -18,6 +18,7 @@ test-monorepo:
     - name: redis:7
       alias: redis
   cache:
+    key: ${CI_COMMIT_REF_SLUG}
     paths:
       - node_modules/
   before_script:
@@ -35,17 +36,14 @@ build-images:
   stage: build
   image: docker:latest
   services:
-    - docker:dind
+    - name: docker:dind
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
   before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY || true
   script:
-    - echo "Fazendo build das imagens usando Docker Compose..."
-    # O GitLab já injeta variáveis de ambiente que podemos usar no build
-    - docker compose build
-    # Se quiser dar push:
-    # - docker compose push
-  only:
-    - main
-    - develop
+    - echo "Fazendo build das imagens..."
+    - docker compose build || docker-compose build
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
