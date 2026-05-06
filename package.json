@@ -1,22 +1,35 @@
 {
-  "name": "almoco_auth",
-  "version": "0.0.1",
-  "description": "",
+  "name": "almoco-monorepo",
+  "version": "1.0.0",
+  "description": "Almoco ERP — NestJS Monorepo (auth, menu, stock, order)",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "build:auth": "nest build auth",
+    "build:menu": "nest build menu",
+    "build:stock": "nest build stock",
+    "build:order": "nest build order",
+    "build:all": "nest build auth && nest build menu && nest build stock && nest build order",
+    "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\"",
     "start": "nest start",
+    "start:auth": "nest start auth",
+    "start:menu": "nest start menu",
+    "start:stock": "nest start stock",
+    "start:order": "nest start order",
     "start:dev": "nest start --watch",
+    "start:dev:auth": "nest start auth --watch",
+    "start:dev:menu": "nest start menu --watch",
+    "start:dev:stock": "nest start stock --watch",
+    "start:dev:order": "nest start order --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "start:prod:auth": "node dist/apps/auth/main",
+    "start:prod:menu": "node dist/apps/menu/main",
+    "start:prod:stock": "node dist/apps/stock/main",
+    "start:prod:order": "node dist/apps/order/main",
+    "lint": "eslint \"{apps,libs}/**/*.ts\" --fix",
     "test": "jest",
-    "test:all": "npm test && npm test --prefix modules/menu && npm test --prefix modules/stock && npm test --prefix modules/order",
-    "test:smoke": "ts-node test/smoke.e2e-spec.ts",
-    "build:all": "npm run build && npm run build --prefix modules/menu && npm run build --prefix modules/stock && npm run build --prefix modules/order",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
@@ -46,6 +59,7 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
+    "redis": "^4.7.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1"
@@ -80,20 +94,19 @@
     "typescript-eslint": "^8.20.0"
   },
   "jest": {
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "ts"
-    ],
-    "rootDir": "src",
+    "moduleFileExtensions": ["js", "json", "ts"],
+    "rootDir": ".",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
-    "collectCoverageFrom": [
-      "**/*.(t|j)s"
-    ],
-    "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "collectCoverageFrom": ["apps/**/*.(t|j)s", "libs/**/*.(t|j)s"],
+    "coverageDirectory": "./coverage",
+    "testEnvironment": "node",
+    "roots": ["<rootDir>/apps/", "<rootDir>/libs/"],
+    "moduleNameMapper": {
+      "@app/common/(.*)": "<rootDir>/libs/common/src/$1",
+      "@app/common": "<rootDir>/libs/common/src/index.ts"
+    }
   }
 }

@@ -1,10 +1,27 @@
+.git
+.gitignore
+.github
+.idea
+.prettierrc
+.eslintrc*
+eslint.config.mjs
+
+# Módulos antigos (não fazem parte do monorepo)
+modules/
+payment-module/
+scratch/
+
+# Builds e deps locais (serão instaladas no container)
 node_modules
 dist
-modules
-.git
-.github
-npm-debug.log
+
+# Arquivos desnecessários em prod
+*.md
+*.zip
+*.log
+coverage/
+test/
+
+# Envs (passe via docker-compose environment)
 .env
-Dockerfile
-docker-compose.yml
-zitadel-config.yaml
+.env.*

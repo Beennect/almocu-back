@@ -1,22 +1,109 @@
 services:
+  # ─────────────────────────────────────────────
+  # Auth Service — port 3000
+  # ─────────────────────────────────────────────
   auth-app:
-    build: .
+    build:
+      context: .
+      target: production
+      args:
+        APP_NAME: auth
+    image: almoco/auth:latest
     ports:
       - "3000:3000"
-    # VOLUME REMOVIDO PARA EVITAR EACCES NO FEDORA
     environment:
-      - NODE_ENV=development
-      - JWT_SECRET=super-secret-key-123
+      - NODE_ENV=production
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET:-super-secret-key-123}
       - MONGODB_URI=mongodb://mongodb:27017/auth_app
       - REDIS_URI=redis://redis:6379
     depends_on:
       mongodb:
-        condition: service_started
+        condition: service_healthy
       redis:
         condition: service_started
     networks:
       - almoco_network
+    restart: unless-stopped
 
+  # ─────────────────────────────────────────────
+  # Menu Service — port 3200
+  # ─────────────────────────────────────────────
+  menu-app:
+    build:
+      context: .
+      target: production
+      args:
+        APP_NAME: menu
+    image: almoco/menu:latest
+    ports:
+      - "3200:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET:-super-secret-key-123}
+      - MONGODB_URI=mongodb://mongodb:27017/almocu
+      - REDIS_URI=redis://redis:6379
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - almoco_network
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  # Stock Service — port 3100
+  # ─────────────────────────────────────────────
+  stock-app:
+    build:
+      context: .
+      target: production
+      args:
+        APP_NAME: stock
+    image: almoco/stock:latest
+    ports:
+      - "3100:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET:-super-secret-key-123}
+      - MONGODB_URI=mongodb://mongodb:27017/almocu_stock
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - almoco_network
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  # Order Service — port 3300
+  # ─────────────────────────────────────────────
+  order-app:
+    build:
+      context: .
+      target: production
+      args:
+        APP_NAME: order
+    image: almoco/order:latest
+    ports:
+      - "3300:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET:-super-secret-key-123}
+      - MONGODB_URI=mongodb://mongodb:27017/almocu_order
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - almoco_network
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  # MongoDB
+  # ─────────────────────────────────────────────
   mongodb:
     image: mongo:7.0
     restart: unless-stopped
@@ -32,79 +119,16 @@ services:
     networks:
       - almoco_network
 
+  # ─────────────────────────────────────────────
+  # Redis
+  # ─────────────────────────────────────────────
   redis:
     image: redis:alpine
+    restart: unless-stopped
     ports:
       - "127.0.0.1:63790:6379"
     networks:
       - almoco_network
-
-  stock-app:
-    build: ./modules/stock
-    volumes:
-      - ./modules/stock/src:/app/src:Z
-      - ./modules/stock/package.json:/app/package.json:Z
-      - ./modules/stock/tsconfig.json:/app/tsconfig.json:Z
-      - ./modules/stock/nest-cli.json:/app/nest-cli.json:Z
-      - /app/node_modules
-    environment:
-      - PORT=3000
-      - JWT_SECRET=super-secret-key-123
-      - MONGODB_URI=mongodb://mongodb:27017/almocu_stock
-      - NODE_ENV=development
-    depends_on:
-      mongodb:
-        condition: service_healthy
-    ports:
-      - "3100:3000"
-    command: ["npm", "run", "start:dev"]
-    networks:
-      - almoco_network
-
-  menu-app:
-    build: ./modules/menu
-    volumes:
-      - ./modules/menu/src:/app/src:Z
-      - ./modules/menu/package.json:/app/package.json:Z
-      - ./modules/menu/tsconfig.json:/app/tsconfig.json:Z
-      - ./modules/menu/nest-cli.json:/app/nest-cli.json:Z
-      - /app/node_modules
-    ports:
-      - "3200:3000"
-    environment:
-      - PORT=3000
-      - JWT_SECRET=super-secret-key-123
-      - MONGODB_URI=mongodb://mongodb:27017/almocu
-      - REDIS_URI=redis://redis:6379
-      - NODE_ENV=development
-    depends_on:
-      - mongodb
-      - redis
-    command: ["npm", "run", "start:dev"]
-    networks:
-      - almoco_network
-
-  order-app:
-    build: ./modules/order
-    volumes:
-      - ./modules/order/src:/app/src:Z
-      - ./modules/order/package.json:/app/package.json:Z
-      - ./modules/order/tsconfig.json:/app/tsconfig.json:Z
-      - ./modules/order/nest-cli.json:/app/nest-cli.json:Z
-      - ./modules/order/test:/app/test:Z
-    depends_on:
-      - mongodb
-    ports:
-      - "3300:3000"
-    environment:
-      - PORT=3000
-      - JWT_SECRET=super-secret-key-123
-      - MONGODB_URI=mongodb://mongodb:27017/almocu_order
-      - NODE_ENV=development
-    networks:
-      - almoco_network
-    command: ["npm", "run", "start:dev"]
-
 
 networks:
   almoco_network:
