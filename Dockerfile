@@ -43,10 +43,10 @@ LABEL service="${APP_NAME}"
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/package.json ./package.json
 
-# Só o dist do app específico
+# Só o dist do app específico (bundle do webpack)
 COPY --from=build /app/dist/apps/${APP_NAME} ./dist
 
 EXPOSE 3000
 
-# Encontra o main.js dinamicamente e executa (resolve problemas de estrutura aninhada)
-CMD ["sh", "-c", "node $(find dist -name main.js | head -n 1)"]
+# Com webpack, o main.js está sempre na raiz da pasta de output do projeto
+CMD ["node", "dist/main.js"]

@@ -6,7 +6,7 @@
   "sourceRoot": "apps/auth/src",
   "compilerOptions": {
     "deleteOutDir": true,
-    "webpack": false,
+    "webpack": true,
     "tsConfigPath": "apps/auth/tsconfig.app.json"
   },
   "projects": {
@@ -16,7 +16,8 @@
       "entryFile": "main",
       "sourceRoot": "apps/auth/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/auth/tsconfig.app.json"
+        "tsConfigPath": "apps/auth/tsconfig.app.json",
+        "webpack": true
       }
     },
     "menu": {
@@ -25,7 +26,8 @@
       "entryFile": "main",
       "sourceRoot": "apps/menu/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/menu/tsconfig.app.json"
+        "tsConfigPath": "apps/menu/tsconfig.app.json",
+        "webpack": true
       }
     },
     "stock": {
@@ -34,7 +36,8 @@
       "entryFile": "main",
       "sourceRoot": "apps/stock/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/stock/tsconfig.app.json"
+        "tsConfigPath": "apps/stock/tsconfig.app.json",
+        "webpack": true
       }
     },
     "order": {
@@ -43,7 +46,8 @@
       "entryFile": "main",
       "sourceRoot": "apps/order/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/order/tsconfig.app.json"
+        "tsConfigPath": "apps/order/tsconfig.app.json",
+        "webpack": true
       }
     },
     "common": {
