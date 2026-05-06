@@ -1,103 +1,90 @@
-# 🚀 Almocu Monorepo - Microserviços & Gateway
+# 🚀 Almocu Monorepo - Microserviços & API
 
-Bem-vindo ao ecossistema **Almocu**. Este é um monorepo escalável, organizado em microserviços, com um API Gateway centralizado para autenticação e roteamento inteligente.
+Bem-vindo ao ecossistema **Almocu**. Este é um monorepo NestJS escalável, organizado em microserviços de negócio: Auth, Menu, Stock, e Order.
 
 ---
 
 ## 🏗️ Arquitetura e Organização
 
-O projeto segue uma estrutura de **Monorepo** moderna, separando a inteligência do Gateway dos serviços de negócio.
+O projeto segue a estrutura oficial de Monorepo do NestJS (`apps/` e `libs/`):
 
 ```text
 .
-├── src/                    # 🛡️ API GATEWAY (Auth & Proxy)
-│   ├── common/             # Middlewares (Proxy, Auth) e Filtros
-│   ├── modules/            # Lógica de Autenticação e Usuários
-│   └── main.ts             # Entrada principal (Porta 3000)
-│
-├── modules/                # 📦 MICROSERVIÇOS
+├── apps/                   # 📦 MICROSERVIÇOS
+│   ├── auth/               # Serviço de Autenticação (Porta 3000)
 │   ├── menu/               # Gestão de Cardápio (Porta 3200)
 │   ├── stock/              # Gestão de Estoque (Porta 3100)
 │   └── order/              # Gestão de Pedidos (Porta 3300)
+│
+├── libs/                   # 📚 BIBLIOTECAS COMPARTILHADAS
+│   └── common/             # Middlewares, Guards e Configurações globais
 │
 └── docker-compose.yml      # 🐳 Orquestração de Infraestrutura
 ```
 
 ---
 
-## 🚦 Roteamento API Gateway (Porta 3000)
+## 🚦 Serviços e Portas
 
-O **Gateway (Porta 3000)** é a porta de entrada única da aplicação. Você **não precisa** e **não deve** acessar os microserviços diretamente pelas portas internas (3100, 3200, 3300) em produção. O Gateway faz a autenticação, o rate limiting e o roteamento transparente (`Proxying`).
-
-| Serviço Original | Acesso Pelo Gateway (Recomendado) | Descrição |
+| Serviço | Porta Local | Descrição |
 | :--- | :--- | :--- |
-| **Auth** (App Root) | `http://localhost:3000/auth/*` | Login (`/login`), Registro (`/register`) e Saída (`/logout`) |
-| **Stock Service** | `http://localhost:3000/api/stock/*` | Ex: `GET /api/stock/product/user/all` |
-| **Menu Service** | `http://localhost:3000/api/menu/*` | Ex: `POST /api/menu/product` |
-| **Order Service** | `http://localhost:3000/api/order/*` | Ex: `GET /api/order/orders/user/all` |
+| **Auth** | `3000` | Autenticação, Cadastro de Restaurantes e Usuários |
+| **Stock** | `3100` | Gestão de Produtos e Estoque |
+| **Menu** | `3200` | Gestão de Cardápio |
+| **Order** | `3300` | Gestão de Pedidos |
 
-> **Nota de Segurança:** Todas as rotas `/api/*` e `/auth/logout` exigem um token JWT válido enviado no cabeçalho `Authorization: Bearer <token>`.
-
----
-
-## 🛡️ Segurança e Multi-Tenancy
-
-* **Isolamento de Dados (Multi-Tenant):** Todos os dados são separados usando o `restaurantId`. O sistema suporta **Tenancy Dinâmica** via cabeçalho `x-restaurant-id`.
-* **Tenancy Dinâmica:** Você pode alternar o contexto do restaurante em qualquer requisição enviando o header `x-restaurant-id: <id_do_restaurante>`. O Gateway validará automaticamente se o usuário possui acesso ao restaurante solicitado antes de proxiar a requisição.
-* **Blacklist de Tokens:** Ao fazer logout, o token é invalidado imediatamente via **Redis**.
-* **Rate Limiting:** Proteção contra força bruta e excesso de requisições via NestJS Throttler.
+> **Nota de Segurança:** As rotas protegidas exigem um token JWT válido enviado no cabeçalho `Authorization: Bearer <token>`. O projeto também suporta isolamento multi-tenant via cabeçalho `x-restaurant-id`.
 
 ---
 
-## 🔐 Configuração (.env)
+## 💻 Desenvolvimento Local
 
-O projeto utiliza variáveis de ambiente para conexões de banco e segredos. Certifique-se de ter um arquivo `.env` na raiz:
+O jeito mais fácil de rodar o projeto localmente é levantar a infraestrutura com o Docker e rodar o código NodeJS na sua máquina via terminal.
 
-### Gateway (`.env` na raiz)
+### 1. Configurar Variáveis de Ambiente
+Crie ou ajuste o arquivo `.env` na raiz do projeto com as seguintes variáveis apontando para os serviços que serão levantados no Docker (localhost):
+
 ```env
-# Banco de Dados Auth (MongoDB)
-MONGODB_URI=mongodb://mongodb:27017/auth_app
+# Banco de Dados
+MONGODB_URI=mongodb://localhost:27018/auth_app
 
 # Cache e Sessão (Redis)
-REDIS_URI=redis://redis:6379
+REDIS_URI=redis://localhost:63790
 
 # Autenticação
 JWT_SECRET=super-secret-key-123
 ```
 
-### Microserviços
-Os microserviços já estão configurados no `docker-compose.yml` para usar o MongoDB interno, mas se precisar alterar:
-*   `MONGODB_URI`: `mongodb://mongodb:27017/nome_do_servico`
-
----
-
-## 🛠️ Comandos Úteis
-
-### Subir o Ambiente Completo
+### 2. Subir a Infraestrutura (DB e Cache)
+Use o Docker para subir o MongoDB e o Redis localmente:
 ```bash
-sudo docker-compose up --build -d
+docker-compose up -d mongodb redis
 ```
 
-### Ver Logs de um Serviço Específico
+### 3. Instalar Dependências e Rodar os Apps
+Instale as dependências (já usamos **SWC compiler** para builds 20x mais rápidos):
 ```bash
-sudo docker-compose logs -f auth-app
-sudo docker-compose logs -f stock-app
+npm install
 ```
 
-### Limpar Tudo (Volumes e Containers órfãos)
+Inicie cada microserviço em uma janela de terminal separada com hot-reload ativo:
 ```bash
-sudo docker-compose down -v --remove-orphans
+npm run start:dev:auth
+npm run start:dev:menu
+npm run start:dev:stock
+npm run start:dev:order
 ```
 
 ---
 
+## 🐳 Subir Tudo via Docker (Homologação)
+
+Se você quiser rodar o ecossistema completo usando os containers Docker da aplicação (sem usar `npm run start` na sua máquina):
+
+```bash
+docker-compose up --build -d
+```
+*Para limpar volumes e recriar tudo limpo: `docker-compose down -v --remove-orphans`*
+
 ---
-
-⚡ *Desenvolvido com foco em alta performance e escalabilidade.*
-
-## 📝 Notas de Desenvolvimento
-- **Hot-Reload:** Os microserviços possuem volumes mapeados. Qualquer alteração em `modules/*/src` refletirá instantaneamente nos containers.
-- **Gateway Build:** O Gateway (`auth-app`) não possui volume mapeado por segurança de permissões no Linux. Se alterar algo na raiz (`src/`), rode `docker-compose up --build auth-app`.
-
----
-⚡ *Desenvolvido com foco em alta performance e escalabilidade.*
+⚡ *Desenvolvido com foco em alta performance e escalabilidade usando NestJS e SWC.*
