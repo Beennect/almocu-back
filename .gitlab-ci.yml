@@ -24,8 +24,10 @@ test-monorepo:
   before_script:
     - npm ci
   script:
-    - echo "Rodando todos os testes do monorepo..."
+    - echo "Rodando testes unitários..."
     - npm run test
+    - echo "Rodando testes E2E..."
+    - npm run test:e2e
   artifacts:
     when: always
     paths:

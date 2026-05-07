@@ -33,7 +33,15 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:auth": "jest apps/auth",
+    "test:menu": "jest apps/menu",
+    "test:stock": "jest apps/stock",
+    "test:order": "jest apps/order",
+    "test:e2e": "jest --config apps/auth/test/jest-e2e.json && jest --config apps/menu/test/jest-e2e.json && jest --config apps/order/test/jest-e2e.json && jest --config apps/stock/test/jest-e2e.json",
+    "test:auth:e2e": "jest --config apps/auth/test/jest-e2e.json",
+    "test:menu:e2e": "jest --config apps/menu/test/jest-e2e.json",
+    "test:order:e2e": "jest --config apps/order/test/jest-e2e.json",
+    "test:stock:e2e": "jest --config apps/stock/test/jest-e2e.json"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
@@ -57,6 +65,7 @@
     "mongoose": "^8.9.0",
     "openid-client": "^6.8.3",
     "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
     "redis": "^4.7.0",
@@ -77,6 +86,7 @@
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",
+    "@types/passport-google-oauth20": "^2.0.17",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
     "@types/supertest": "^7.0.0",

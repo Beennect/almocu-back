@@ -1,4 +1,7 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  Injectable, NotFoundException,
+  BadRequestException, ConflictException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Stock, StockDocument } from './stock.schema';
@@ -6,34 +9,33 @@ import { CreateStockDto, UpdateStockDto } from './dto/stock.dto';
 
 @Injectable()
 export class StockService {
-  constructor(@InjectModel(Stock.name) private stockModel: Model<StockDocument>) {}
+  constructor(
+    @InjectModel(Stock.name) private readonly stockModel: Model<StockDocument>,
+  ) { }
 
   async create(createStockDto: CreateStockDto, userId: string, restaurantId: string): Promise<Stock> {
-    const { name, brand } = createStockDto;
-    
-    const existing = await this.stockModel.findOne({
-      name: name.trim(),
-      brand: brand || '',
-      restaurantId,
-    });
+    const name = createStockDto.name.trim();
+    const brand = createStockDto.brand?.trim() || '';
 
+    const existing = await this.stockModel.findOne({ name, brand, restaurantId }).exec();
     if (existing) {
       throw new ConflictException(`O item "${name}" já existe nesta filial.`);
     }
 
-    const createdStock = new this.stockModel({
+    const created = new this.stockModel({
       ...createStockDto,
-      name: name.trim(),
-      brand: brand || '',
+      name,
+      brand,
       userId,
       restaurantId,
     });
 
-    return createdStock.save();
+    return created.save();
   }
 
   async findAll(restaurantId: string, page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
+
     const [items, total] = await Promise.all([
       this.stockModel.find({ restaurantId }).skip(skip).limit(limit).exec(),
       this.stockModel.countDocuments({ restaurantId }).exec(),
@@ -65,22 +67,34 @@ export class StockService {
     if (!updated) {
       throw new NotFoundException('Item de estoque não encontrado para atualização.');
     }
+
     return updated;
   }
 
   async adjustQuantity(id: string, delta: number, restaurantId: string): Promise<Stock> {
-    const item = await this.stockModel.findOne({ _id: id, restaurantId }).exec();
-    if (!item) {
-      throw new NotFoundException('Item de estoque não encontrado para ajuste.');
+    if (delta === 0) {
+      throw new BadRequestException('Delta não pode ser zero.');
     }
 
-    const newQuantity = item.quantity + delta;
-    if (newQuantity < 0) {
+    // Para saídas (delta negativo), a query só encontra o item se houver quantidade suficiente
+    // evitando race condition entre requests simultâneos
+    const filter = delta < 0
+      ? { _id: id, restaurantId, quantity: { $gte: -delta } }
+      : { _id: id, restaurantId };
+
+    const updated = await this.stockModel.findOneAndUpdate(
+      filter,
+      { $inc: { quantity: delta } },
+      { new: true, runValidators: true },
+    ).exec();
+
+    if (!updated) {
+      const exists = await this.stockModel.exists({ _id: id, restaurantId });
+      if (!exists) throw new NotFoundException('Item de estoque não encontrado.');
       throw new BadRequestException('A quantidade resultante não pode ser negativa.');
     }
 
-    item.quantity = newQuantity;
-    return item.save();
+    return updated;
   }
 
   async remove(id: string, restaurantId: string): Promise<void> {

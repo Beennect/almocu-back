@@ -5,7 +5,7 @@ export class CreateStockDto {
   @ApiProperty({ example: 'Feijão Carioca' })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @ApiProperty({ example: 'Kicaldo', required: false })
   @IsString()
@@ -15,12 +15,12 @@ export class CreateStockDto {
   @ApiProperty({ example: 10 })
   @IsNumber()
   @Min(0)
-  quantity: number;
+  quantity!: number;
 
   @ApiProperty({ example: 'un' })
   @IsString()
   @IsNotEmpty()
-  unit: string;
+  unit!: string;
 
   @ApiProperty({ example: 10, required: false })
   @IsNumber()
@@ -59,5 +59,5 @@ export class UpdateStockDto {
 export class AdjustStockDto {
   @ApiProperty({ example: -2, description: 'Valor a ser somado ou subtraído da quantidade atual' })
   @IsNumber()
-  delta: number;
+  delta!: number;
 }

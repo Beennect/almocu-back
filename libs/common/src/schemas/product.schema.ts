@@ -6,31 +6,31 @@ import { ApiProperty } from '@nestjs/swagger';
 export class Product extends Document {
   @ApiProperty()
   @Prop({ required: true })
-  name: string;
+  name!: string;
 
   @ApiProperty()
   @Prop({ required: true })
-  brand: string;
+  brand!: string;
 
   @ApiProperty()
   @Prop({ required: true })
-  price: number;
+  price!: number;
 
   @ApiProperty()
   @Prop()
-  description: string;
+  description!: string;
 
   @ApiProperty()
   @Prop({ required: true })
-  stockProductId: string;
+  stockProductId!: string;
 
   @ApiProperty()
   @Prop({ required: true, index: true })
-  restaurantId: string;
+  restaurantId!: string;
 
   @ApiProperty()
   @Prop({ required: true })
-  userId: string;
+  userId!: string;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

@@ -5,14 +5,14 @@ export class LoginDto {
   @ApiProperty({ example: 'joao_silva' })
   @IsString()
   @IsNotEmpty()
-  username: string;
+  username!: string;
 
   @ApiProperty({ example: 'senha123' })
   @IsString()
   @IsNotEmpty()
-  password: string;
+  password!: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     example: '65f1a2b3c4d5e6f7a8b9c0d1',
     required: false,
     description: 'ID do restaurante para login direto em um contexto'

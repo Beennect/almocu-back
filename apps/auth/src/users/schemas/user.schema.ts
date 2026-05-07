@@ -28,22 +28,25 @@ export type UserDocument = User & Document;
 })
 export class User {
   @Prop({ unique: true, required: true, trim: true, lowercase: true })
-  username: string;
+  username!: string;
 
-  @Prop({ required: true, select: false }) // select: false protege contra vazamentos acidentais
-  password: string;
+  @Prop({ required: false, select: false }) // Password is optional for OAuth users
+  password?: string;
 
   @Prop({ unique: true, required: true, trim: true, lowercase: true })
-  email: string;
+  email!: string;
 
   @Prop({ required: true })
-  name: string;
+  name!: string;
+
+  @Prop({ unique: true, sparse: true }) // sparse allows multiple nulls if not logged via google
+  googleId?: string;
 
   @Prop({ type: [String], default: ['user'] })
-  globalRoles: string[];
+  globalRoles!: string[];
 
   @Prop({ default: true })
-  isActive: boolean;
+  isActive!: boolean;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

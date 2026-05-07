@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Product } from './product.schema';
+import { Product } from '@app/common';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
 import { createClient } from 'redis';
 
@@ -38,7 +38,7 @@ export class ProductService {
       const saved = await newProduct.save();
       await this.invalidateCache(restaurantId);
       return saved;
-    } catch (error) {
+    } catch (error: any) {
       if (error.code === 11000) {
         throw new ConflictException('Produto com este nome e marca já existe neste restaurante.');
       }
@@ -49,7 +49,7 @@ export class ProductService {
   async findAll(restaurantId: string, page: number = 1, limit: number = 10) {
     const cacheKey = `products:${restaurantId}:page:${page}:limit:${limit}`;
     const cached = await this.redisClient.get(cacheKey);
-    
+
     if (cached) {
       return JSON.parse(cached);
     }
@@ -81,9 +81,9 @@ export class ProductService {
     const updated = await this.productModel
       .findOneAndUpdate({ _id: id, restaurantId }, updateProductDto, { new: true })
       .exec();
-    
+
     if (!updated) throw new NotFoundException('Produto não encontrado.');
-    
+
     await this.invalidateCache(restaurantId);
     return updated;
   }
@@ -91,8 +91,15 @@ export class ProductService {
   async remove(id: string, restaurantId: string) {
     const deleted = await this.productModel.findOneAndDelete({ _id: id, restaurantId }).exec();
     if (!deleted) throw new NotFoundException('Produto não encontrado.');
-    
+
     await this.invalidateCache(restaurantId);
     return { message: 'Produto removido com sucesso' };
   }
+  async findByIds(ids: string[], restaurantId: string) {
+    return this.productModel.find({
+      _id: { $in: ids },
+      restaurantId,
+    }).exec();
+  }
 }
+

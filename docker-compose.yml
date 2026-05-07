@@ -17,6 +17,9 @@ services:
       - JWT_SECRET=${JWT_SECRET:-super-secret-key-123}
       - MONGODB_URI=mongodb://mongodb:27017/auth_app
       - REDIS_URI=redis://redis:6379
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
     depends_on:
       mongodb:
         condition: service_healthy

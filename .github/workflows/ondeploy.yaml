@@ -44,8 +44,11 @@ jobs:
       - name: Build All Apps
         run: npm run build:all
 
-      - name: Run Monorepo Tests
-        run: npm test
+      - name: Run Unit Tests
+        run: npm run test
+
+      - name: Run E2E Tests
+        run: npm run test:e2e
 
       - name: Docker Compose Build Check
         # Isso garante que o Dockerfile continua funcionando

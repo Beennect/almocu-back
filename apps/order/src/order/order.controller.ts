@@ -27,9 +27,9 @@ export class OrderController {
     @Req() req: any,
     @Body() createOrderDto: CreateOrderDto,
   ) {
-    const userId = req.user.id;
-    const restaurantId = req.user.restaurantId;
-    return this.orderService.create(userId, restaurantId, createOrderDto);
+    const token = req.headers.authorization;
+    return this.orderService.create(req.user.id, req.user.restaurantId, createOrderDto, token);
+
   }
 
   @Get()

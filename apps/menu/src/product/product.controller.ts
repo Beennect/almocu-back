@@ -61,4 +61,12 @@ export class ProductController {
     const restaurantId = req.user.restaurantId;
     return this.productService.remove(id, restaurantId);
   }
+  @Post('batch')
+  @ApiOperation({ summary: 'Busca múltiplos produtos pelos IDs' })
+  findByIds(@Body('ids') ids: string[], @Req() req: any) {
+    const restaurantId = req.user.restaurantId;
+    // Note: This assumes we want to filter by restaurantId for security
+    return this.productService.findByIds(ids, restaurantId);
+  }
 }
+

@@ -14,16 +14,16 @@ export enum UserRole {
 @Schema({ timestamps: true })
 export class UserRestaurant {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  userId: Types.ObjectId;
+  userId!: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'Restaurant', required: true })
-  restaurantId: Types.ObjectId;
+  restaurantId!: Types.ObjectId;
 
   @Prop({ required: true, enum: UserRole, default: UserRole.WAITER })
-  role: UserRole;
+  role!: UserRole;
 
   @Prop({ default: 'active', enum: ['active', 'pending', 'inactive'] })
-  status: string;
+  status!: string;
 }
 
 export const UserRestaurantSchema = SchemaFactory.createForClass(UserRestaurant);

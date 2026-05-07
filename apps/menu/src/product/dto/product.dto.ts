@@ -5,17 +5,17 @@ export class CreateProductDto {
   @ApiProperty({ example: 'Hamburguer Gourmet' })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @ApiProperty({ example: 'Casa da Carne' })
   @IsString()
   @IsNotEmpty()
-  brand: string;
+  brand!: string;
 
   @ApiProperty({ example: 35.0 })
   @IsNumber()
   @Min(0)
-  price: number;
+  price!: number;
 
   @ApiProperty({ example: 'Delicioso hamburguer com blend especial' })
   @IsString()
@@ -25,7 +25,7 @@ export class CreateProductDto {
   @ApiProperty({ example: '60d5ecb8b392d70015f8e32c' })
   @IsString()
   @IsNotEmpty()
-  stockProductId: string;
+  stockProductId!: string;
 }
 
-export class UpdateProductDto extends PartialType(CreateProductDto) {}
+export class UpdateProductDto extends PartialType(CreateProductDto) { }
