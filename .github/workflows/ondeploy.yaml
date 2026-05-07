@@ -26,6 +26,7 @@ jobs:
       MONGODB_URI: mongodb://localhost:27017/almoco_test
       REDIS_HOST: localhost
       REDIS_PORT: 6379
+      REDIS_URI: redis://localhost:6379
       JWT_SECRET: super-secret-key-123
 
     steps:

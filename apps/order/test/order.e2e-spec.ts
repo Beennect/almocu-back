@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { JwtAuthGuard } from '@app/common';
+import { ExecutionContext } from '@nestjs/common';
 
 describe('OrderController (e2e)', () => {
   let app: INestApplication;
@@ -9,7 +11,16 @@ describe('OrderController (e2e)', () => {
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({
+        canActivate: (context: ExecutionContext) => {
+          const req = context.switchToHttp().getRequest();
+          req.user = { id: 'test-user-id', restaurantId: 'test-restaurant-id' };
+          return true;
+        },
+      })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
