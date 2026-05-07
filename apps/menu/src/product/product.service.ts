@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, OnModuleDestroy } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Product } from '@app/common';
@@ -6,13 +6,19 @@ import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
 import { createClient } from 'redis';
 
 @Injectable()
-export class ProductService {
+export class ProductService implements OnModuleDestroy {
   private redisClient;
 
   constructor(
     @InjectModel(Product.name) private productModel: Model<Product>,
   ) {
     this.initRedis();
+  }
+
+  async onModuleDestroy() {
+    if (this.redisClient) {
+      await this.redisClient.quit();
+    }
   }
 
   private async initRedis() {
