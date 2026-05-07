@@ -16,7 +16,7 @@ describe('StockController (e2e)', () => {
       .useValue({
         canActivate: (context: ExecutionContext) => {
           const req = context.switchToHttp().getRequest();
-          req.user = { id: 'test-user-id', restaurantId: 'test-restaurant-id' };
+          req.user = { id: '6458f3f4e4b0c5e8d5f3a1b2', restaurantId: '6458f3f4e4b0c5e8d5f3a1b3' };
           return true;
         },
       })
@@ -33,6 +33,6 @@ describe('StockController (e2e)', () => {
   it('/stock (GET)', () => {
     return request(app.getHttpServer())
       .get('/stock')
-      .expect(401); // Unauthorized is expected without token
+      .expect(200);
   });
 });

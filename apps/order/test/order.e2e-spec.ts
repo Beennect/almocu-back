@@ -16,7 +16,7 @@ describe('OrderController (e2e)', () => {
       .useValue({
         canActivate: (context: ExecutionContext) => {
           const req = context.switchToHttp().getRequest();
-          req.user = { id: 'test-user-id', restaurantId: 'test-restaurant-id' };
+          req.user = { id: '6458f3f4e4b0c5e8d5f3a1b2', restaurantId: '6458f3f4e4b0c5e8d5f3a1b3' };
           return true;
         },
       })
@@ -31,10 +31,8 @@ describe('OrderController (e2e)', () => {
   });
 
   it('/orders/user (GET)', () => {
-    // Note: This will fail if no user is authenticated or DB is empty,
-    // but it serves to test the endpoint response structure.
     return request(app.getHttpServer())
       .get('/orders/user')
-      .expect(401); // Unauthorized is expected since we don't have a token here
+      .expect(200);
   });
 });
