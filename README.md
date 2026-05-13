@@ -45,14 +45,36 @@ O jeito mais fácil de rodar o projeto localmente é levantar a infraestrutura c
 Crie ou ajuste o arquivo `.env` na raiz do projeto com as seguintes variáveis apontando para os serviços que serão levantados no Docker (localhost):
 
 ```env
-# Banco de Dados
-MONGODB_URI=mongodb://localhost:27018/auth_app
+# Configuração de Ambiente
+NODE_ENV=production
 
-# Cache e Sessão (Redis)
-REDIS_URI=redis://localhost:63790
+# Segredos e Segurança
+# Troque por uma chave longa e segura em produção
+JWT_SECRET=sua_chave_secreta_aqui_muito_longa_e_segura_123
 
-# Autenticação
-JWT_SECRET=super-secret-key-123
+# Google OAuth (Obrigatório para login via Google)
+# Obtenha em: https://console.cloud.google.com/
+GOOGLE_CLIENT_ID=seu_google_client_id_aqui
+GOOGLE_CLIENT_SECRET=seu_google_client_secret_aqui
+GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
+
+# Banco de Dados e Cache (Configurações internas do Docker Compose)
+# Geralmente você não precisa alterar estas se estiver usando o docker-compose.yml padrão
+MONGODB_URI=mongodb://mongodb:27017/almocu
+REDIS_URI=redis://redis:6379
+
+# URLs dos Microserviços (Interno do Docker)
+MENU_SERVICE_URL=http://menu-app:3000
+STOCK_SERVICE_URL=http://stock-app:3000
+ORDER_SERVICE_URL=http://order-app:3000
+
+# Portas Expostas (Mapping no Host)
+AUTH_PORT=3000
+MENU_PORT=3200
+STOCK_PORT=3100
+ORDER_PORT=3300
+MONGO_PORT=27018
+REDIS_PORT=63790
 ```
 
 ### 2. Subir a Infraestrutura (DB e Cache)
