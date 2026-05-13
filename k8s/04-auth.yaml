@@ -1,0 +1,145 @@
+# ─────────────────────────────────────────────────────────────────
+# Auth Service — Deployment + Service (NodePort) + HPA
+#
+# Este é o único serviço com porta EXPOSTA externamente (NodePort)
+# para que clientes mobile/web possam acessar.
+# ─────────────────────────────────────────────────────────────────
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-app
+  namespace: almocu
+  labels:
+    app: auth-app
+spec:
+  replicas: 2                          # Começa com 2 réplicas
+  selector:
+    matchLabels:
+      app: auth-app
+  template:
+    metadata:
+      labels:
+        app: auth-app
+    spec:
+      containers:
+        - name: auth-app
+          image: almoco/auth:latest
+          imagePullPolicy: IfNotPresent  # Usa imagem local do minikube
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: NODE_ENV
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: PORT
+            - name: MONGODB_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: MONGODB_URI_AUTH
+            - name: REDIS_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: REDIS_URI
+            - name: GOOGLE_CALLBACK_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: GOOGLE_CALLBACK_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: almocu-secrets
+                  key: JWT_SECRET
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: almocu-secrets
+                  key: GOOGLE_CLIENT_ID
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: almocu-secrets
+                  key: GOOGLE_CLIENT_SECRET
+          # Verifica se a porta TCP está respondendo (não precisa de rota /health)
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 3
+          # Só envia tráfego quando a porta estiver ouvindo
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          # Limites de recursos para o HPA funcionar corretamente
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "300m"
+
+---
+
+# Service do Auth: NodePort = porta acessível de fora do cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: almocu
+spec:
+  selector:
+    app: auth-app
+  type: NodePort
+  ports:
+    - name: http
+      port: 3000          # Porta interna do cluster
+      targetPort: 3000    # Porta do container
+      nodePort: 30000     # Porta que fica aberta no host (30000-32767)
+
+---
+
+# HPA — Horizontal Pod Autoscaler do Auth
+# Escala automaticamente entre 2 e 10 réplicas baseado no uso de CPU e memória
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: auth-app-hpa
+  namespace: almocu
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: auth-app
+  minReplicas: 2    # Mínimo de réplicas (alta disponibilidade)
+  maxReplicas: 10   # Máximo de réplicas
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70    # Escala se CPU > 70%
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80    # Escala se Memória > 80%
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 60   # Espera 60s antes de reduzir
+    scaleUp:
+      stabilizationWindowSeconds: 15   # Reage em 15s ao aumentar
