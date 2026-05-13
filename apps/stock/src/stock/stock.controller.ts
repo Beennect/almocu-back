@@ -6,7 +6,7 @@ import { Request } from 'express';
 import { StockService } from './stock.service';
 import { CreateStockDto, UpdateStockDto, AdjustStockDto } from './dto/stock.dto';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '@app/common';
+import { JwtAuthGuard, TenantGuard } from '@app/common';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -17,7 +17,7 @@ interface AuthenticatedRequest extends Request {
 
 @ApiTags('stock')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 @Controller('stock')
 export class StockController {
   constructor(private readonly stockService: StockService) { }

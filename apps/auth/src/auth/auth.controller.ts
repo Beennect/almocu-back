@@ -1,9 +1,9 @@
 import {
   Controller, Post, Get, Body, UseGuards, Req, Res,
-  ConflictException, HttpCode, HttpStatus,
+  ConflictException, HttpCode, HttpStatus, Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { AuthService } from './auth.service';
+import { AuthService, RestaurantLink } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { Throttle } from '@nestjs/throttler';
 import {
@@ -42,8 +42,16 @@ export class AuthController {
   @UseGuards(AuthGuard('local'))
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  async login(@Req() req: AuthenticatedRequest, @Body() loginDto: LoginDto) {
-    return this.authService.login(req.user, loginDto.restaurantId);
+  async login(@Req() req: AuthenticatedRequest) {
+    return this.authService.login(req.user);
+  }
+
+  @ApiOperation({ summary: 'Valida se o usuário tem acesso a um restaurante específico (usado pelos outros microserviços)' })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @Get('validate-tenant')
+  async validateTenant(@Req() req: AuthenticatedRequest, @Query('restaurantId') restaurantId: string): Promise<RestaurantLink> {
+    return this.authService.validateUserRestaurantAccess(req.user.id ?? req.user.sub!, restaurantId);
   }
 
   @ApiOperation({ summary: 'Registra um novo usuário' })
