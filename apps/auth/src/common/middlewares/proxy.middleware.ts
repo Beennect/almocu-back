@@ -109,6 +109,10 @@ export class ProxyMiddleware implements NestMiddleware {
 
       if (route === '/api/stock') {
         newUrl = '/stock' + newUrl;
+      } else if (route === '/api/menu') {
+        newUrl = '/products' + newUrl;
+      } else if (route === '/api/order') {
+        newUrl = '/orders' + newUrl;
       }
 
       req.url = newUrl;

@@ -1,90 +1,95 @@
 # 🚀 Almocu Monorepo - Microserviços & API
 
-Bem-vindo ao ecossistema **Almocu**. Este é um monorepo NestJS escalável, organizado em microserviços de negócio: Auth, Menu, Stock, e Order.
+Bem-vindo ao ecossistema **Almocu**. Este é um monorepo NestJS escalável, organizado em microserviços de negócio: Auth (Gateway), Menu, Stock, e Order.
 
 ---
 
 ## 🏗️ Arquitetura e Organização
 
-O projeto segue a estrutura oficial de Monorepo do NestJS (`apps/` e `libs/`):
+O projeto utiliza o **serviço de Auth como um API Gateway**. Isso significa que você pode acessar todos os microserviços através da porta **3000**.
 
 ```text
 .
 ├── apps/                   # 📦 MICROSERVIÇOS
-│   ├── auth/               # Serviço de Autenticação (Porta 3000)
+│   ├── auth/               # Gateway & Autenticação (Porta 3000)
 │   ├── menu/               # Gestão de Cardápio (Porta 3200)
 │   ├── stock/              # Gestão de Estoque (Porta 3100)
 │   └── order/              # Gestão de Pedidos (Porta 3300)
 │
 ├── libs/                   # 📚 BIBLIOTECAS COMPARTILHADAS
-│   └── common/             # Middlewares, Guards e Configurações globais
+│   └── common/             # Estratégias, Guards e Schemas compartilhados
 │
-└── docker-compose.yml      # 🐳 Orquestração de Infraestrutura
+└── docker-compose.yml      # 🐳 Orquestração completa (DBs + Apps)
 ```
 
 ---
 
-## 🚦 Serviços e Portas
+## 🚦 Acesso via Gateway (Porta 3000)
 
-| Serviço | Porta Local | Descrição |
+Para facilitar o desenvolvimento do Front-end, o serviço de **Auth** atua como um Proxy reverso. Você não precisa trocar de porta para falar com diferentes serviços:
+
+| Endpoint | Serviço Destino | Descrição |
 | :--- | :--- | :--- |
-| **Auth** | `3000` | Autenticação, Cadastro de Restaurantes e Usuários |
-| **Stock** | `3100` | Gestão de Produtos e Estoque |
-| **Menu** | `3200` | Gestão de Cardápio |
-| **Order** | `3300` | Gestão de Pedidos |
+| `POST :3000/auth/login` | **Auth** | Autenticação e geração de token |
+| `ANY :3000/api/stock/*` | **Stock** | Redireciona para o microserviço de estoque |
+| `ANY :3000/api/menu/*` | **Menu** | Redireciona para o microserviço de cardápio |
+| `ANY :3000/api/order/*` | **Order** | Redireciona para o microserviço de pedidos |
 
-> **Nota de Segurança:** As rotas protegidas exigem um token JWT válido enviado no cabeçalho `Authorization: Bearer <token>`. O projeto também suporta isolamento multi-tenant via cabeçalho `x-restaurant-id`.
+---
+
+## 🏢 Multi-Tenancy e Contexto Dinâmico
+
+O sistema é **multi-tenant**, permitindo que um mesmo usuário tenha diferentes cargos (cargo/role) em diferentes restaurantes.
+
+### Como funciona a troca de contexto:
+1.  **Token JWT**: Contém o `restaurantId` e `role` padrão do usuário (geralmente do restaurante onde ele se cadastrou ou logou por último).
+2.  **Troca Dinâmica**: Você pode acessar dados de **qualquer restaurante** ao qual tenha acesso sem precisar deslogar. Para isso, envie o ID do restaurante alvo em um destes locais (em ordem de prioridade):
+    *   **Header**: `x-restaurant-id: <ID_DO_RESTAURANTE>`
+    *   **Body**: `{ "restaurantId": "<ID_DO_RESTAURANTE>", ... }`
+    *   **Query**: `?restaurantId=<ID_DO_RESTAURANTE>`
+
+O Gateway valida se você tem acesso a esse restaurante e injeta automaticamente os cabeçalhos de contexto (`x-tenant-id`, `x-user-role`) para os microserviços.
+
+### Cargos (Roles):
+- `OWNER`: Dono do restaurante (acesso total).
+- `MANAGER`: Gerente.
+- `WAITER`: Garçom.
+- `KITCHEN`: Cozinha.
+- `CASHIER`: Caixa.
+
+*Nota: **Admins Globais** (globalRoles: ['admin']) ignoram as travas de restaurante e podem acessar qualquer contexto como OWNER.*
 
 ---
 
 ## 💻 Desenvolvimento Local
 
-O jeito mais fácil de rodar o projeto localmente é levantar a infraestrutura com o Docker e rodar o código NodeJS na sua máquina via terminal.
-
 ### 1. Configurar Variáveis de Ambiente
-Crie ou ajuste o arquivo `.env` na raiz do projeto com as seguintes variáveis apontando para os serviços que serão levantados no Docker (localhost):
-
+Ajuste o `.env` na raiz:
 ```env
-# Banco de Dados
-MONGODB_URI=mongodb://localhost:27018/auth_app
-
-# Cache e Sessão (Redis)
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/database
 REDIS_URI=redis://localhost:63790
-
-# Autenticação
-JWT_SECRET=super-secret-key-123
+JWT_SECRET=sua-chave-secreta
 ```
 
-### 2. Subir a Infraestrutura (DB e Cache)
-Use o Docker para subir o MongoDB e o Redis localmente:
-```bash
-docker-compose up -d mongodb redis
-```
-
-### 3. Instalar Dependências e Rodar os Apps
-Instale as dependências (já usamos **SWC compiler** para builds 20x mais rápidos):
+### 2. Rodar os Serviços
 ```bash
 npm install
-```
 
-Inicie cada microserviço em uma janela de terminal separada com hot-reload ativo:
-```bash
+# Iniciar o Gateway (Obrigatório para o Proxy)
 npm run start:dev:auth
-npm run start:dev:menu
+
+# Iniciar outros serviços conforme necessário
 npm run start:dev:stock
+npm run start:dev:menu
 npm run start:dev:order
 ```
 
----
-
-## 🐳 Subir Tudo via Docker (Homologação)
-
-Se você quiser rodar o ecossistema completo usando os containers Docker da aplicação (sem usar `npm run start` na sua máquina):
-
-```bash
-docker-compose up --build -d
-```
-*Para limpar volumes e recriar tudo limpo: `docker-compose down -v --remove-orphans`*
+### 3. Documentação Swagger
+Cada serviço possui sua própria documentação:
+- **Gateway/Auth**: `http://localhost:3000/api`
+- **Stock**: `http://localhost:3100/api`
+- **Menu**: `http://localhost:3200/api`
+- **Order**: `http://localhost:3300/api`
 
 ---
-⚡ *Desenvolvido com foco em alta performance e escalabilidade usando NestJS e SWC.*
+⚡ *Desenvolvido com NestJS, MongoDB e Redis.*
