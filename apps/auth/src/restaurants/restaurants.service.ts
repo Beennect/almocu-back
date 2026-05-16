@@ -1,8 +1,16 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Restaurant, RestaurantDocument } from './schemas/restaurant.schema';
-import { UserRestaurant, UserRestaurantDocument, UserRole } from '../users/schemas/user-restaurant.schema';
+import {
+  UserRestaurant,
+  UserRestaurantDocument,
+  UserRole,
+} from '../users/schemas/user-restaurant.schema';
 
 @Injectable()
 export class RestaurantsService {
@@ -13,7 +21,12 @@ export class RestaurantsService {
     private userRestaurantModel: Model<UserRestaurantDocument>,
   ) {}
 
-  async create(name: string, cnpj: string, ownerId: string, maxBranches: number = 1): Promise<RestaurantDocument> {
+  async create(
+    name: string,
+    cnpj: string,
+    ownerId: string,
+    maxBranches: number = 1,
+  ): Promise<RestaurantDocument> {
     // Gerar um código de convite único
     const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
@@ -37,27 +50,37 @@ export class RestaurantsService {
     return savedRestaurant;
   }
 
-  async createBranch(name: string, parentId: string, ownerId: string): Promise<RestaurantDocument> {
+  async createBranch(
+    name: string,
+    parentId: string,
+    ownerId: string,
+  ): Promise<RestaurantDocument> {
     const parent = await this.restaurantModel.findById(parentId).exec();
     if (!parent) {
       throw new NotFoundException('Restaurante principal não encontrado');
     }
 
     // Verificar se o usuário é OWNER do restaurante principal
-    const ownerLink = await this.userRestaurantModel.findOne({
-      userId: new Types.ObjectId(ownerId),
-      restaurantId: parent._id,
-      role: UserRole.OWNER,
-    }).exec();
+    const ownerLink = await this.userRestaurantModel
+      .findOne({
+        userId: new Types.ObjectId(ownerId),
+        restaurantId: parent._id,
+        role: UserRole.OWNER,
+      })
+      .exec();
 
     if (!ownerLink) {
       throw new ConflictException('Apenas o proprietário pode criar filiais');
     }
 
     // Verificar limite de filiais
-    const branchCount = await this.restaurantModel.countDocuments({ parentId: parent._id }).exec();
+    const branchCount = await this.restaurantModel
+      .countDocuments({ parentId: parent._id })
+      .exec();
     if (branchCount >= parent.maxBranches) {
-      throw new ConflictException(`Limite de filiais atingido para o plano ${parent.plan}`);
+      throw new ConflictException(
+        `Limite de filiais atingido para o plano ${parent.plan}`,
+      );
     }
 
     const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -82,17 +105,24 @@ export class RestaurantsService {
     return savedBranch;
   }
 
-  async joinWithInviteCode(inviteCode: string, userId: string): Promise<UserRestaurantDocument> {
-    const restaurant = await this.restaurantModel.findOne({ inviteCode }).exec();
+  async joinWithInviteCode(
+    inviteCode: string,
+    userId: string,
+  ): Promise<UserRestaurantDocument> {
+    const restaurant = await this.restaurantModel
+      .findOne({ inviteCode })
+      .exec();
     if (!restaurant) {
       throw new NotFoundException('Código de convite inválido');
     }
 
     // Verifica se já existe vínculo
-    const existing = await this.userRestaurantModel.findOne({
-      userId: new Types.ObjectId(userId),
-      restaurantId: restaurant._id,
-    }).exec();
+    const existing = await this.userRestaurantModel
+      .findOne({
+        userId: new Types.ObjectId(userId),
+        restaurantId: restaurant._id,
+      })
+      .exec();
 
     if (existing) {
       throw new ConflictException('Você já faz parte deste restaurante');
@@ -113,11 +143,17 @@ export class RestaurantsService {
       .exec();
   }
 
-  async updateStaffRole(restaurantId: string, targetUserId: string, newRole: UserRole): Promise<UserRestaurantDocument> {
-    const link = await this.userRestaurantModel.findOne({
-      restaurantId: new Types.ObjectId(restaurantId),
-      userId: new Types.ObjectId(targetUserId),
-    }).exec();
+  async updateStaffRole(
+    restaurantId: string,
+    targetUserId: string,
+    newRole: UserRole,
+  ): Promise<UserRestaurantDocument> {
+    const link = await this.userRestaurantModel
+      .findOne({
+        restaurantId: new Types.ObjectId(restaurantId),
+        userId: new Types.ObjectId(targetUserId),
+      })
+      .exec();
 
     if (!link) {
       throw new NotFoundException('Vínculo de funcionário não encontrado');
@@ -128,10 +164,12 @@ export class RestaurantsService {
   }
 
   async removeStaff(restaurantId: string, targetUserId: string): Promise<void> {
-    const result = await this.userRestaurantModel.deleteOne({
-      restaurantId: new Types.ObjectId(restaurantId),
-      userId: new Types.ObjectId(targetUserId),
-    }).exec();
+    const result = await this.userRestaurantModel
+      .deleteOne({
+        restaurantId: new Types.ObjectId(restaurantId),
+        userId: new Types.ObjectId(targetUserId),
+      })
+      .exec();
 
     if (result.deletedCount === 0) {
       throw new NotFoundException('Vínculo de funcionário não encontrado');

@@ -1,4 +1,8 @@
-import { Injectable, NestMiddleware, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NestMiddleware,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { createProxyMiddleware, fixRequestBody } from 'http-proxy-middleware';
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../../auth/auth.service';
@@ -36,57 +40,82 @@ export class ProxyMiddleware implements NestMiddleware {
   };
 
   async use(req: Request, res: Response, next: NextFunction) {
-    const route = Object.keys(this.proxies).find(path => req.originalUrl.startsWith(path));
-    
+    const route = Object.keys(this.proxies).find((path) =>
+      req.originalUrl.startsWith(path),
+    );
+
     if (route) {
       // 1. Validar Autenticação e Tenancy antes de proxiar
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ message: 'Token não fornecido ou inválido' });
+        return res
+          .status(401)
+          .json({ message: 'Token não fornecido ou inválido' });
       }
 
       const token = authHeader.substring(7);
       let payload: any;
-      
+
       try {
         payload = this.jwtService.verify(token);
       } catch (e) {
         return res.status(401).json({ message: 'Token inválido ou expirado' });
       }
 
-      // 2. Lógica de Tenancy Dinâmica (x-restaurant-id)
+      // 2. Lógica de Tenancy Dinâmica
+      // Prioridade: Header > Body > Query
       const headerRestaurantId = req.headers['x-restaurant-id'] as string;
+      const bodyRestaurantId = req.body?.restaurantId;
+      const queryRestaurantId = req.query?.restaurantId as string;
+
+      const targetRestaurantId =
+        headerRestaurantId || bodyRestaurantId || queryRestaurantId;
+
       let restaurantId = payload.restaurantId;
       let role = payload.role;
 
-      if (headerRestaurantId && headerRestaurantId !== restaurantId) {
-        try {
-          const link = await this.authService.validateUserRestaurantAccess(payload.sub, headerRestaurantId);
-          restaurantId = headerRestaurantId;
-          role = link.role;
-          
-          // Importante: Para que o microserviço saiba o contexto correto,
-          // podemos injetar headers específicos que o microserviço confie.
-          req.headers['x-user-id'] = payload.sub;
-          req.headers['x-tenant-id'] = restaurantId;
-          req.headers['x-user-role'] = role;
-        } catch (e) {
-          return res.status(403).json({ message: 'Acesso negado ao restaurante solicitado' });
+      // Se houver um restaurante alvo especificado ou se o usuário for um admin
+      if (targetRestaurantId || payload.globalRoles?.includes('admin')) {
+        const finalTargetId = targetRestaurantId || restaurantId;
+
+        if (finalTargetId) {
+          try {
+            if (payload.globalRoles?.includes('admin')) {
+              restaurantId = finalTargetId;
+              role = 'OWNER'; // Admin age como OWNER
+            } else if (finalTargetId !== payload.restaurantId) {
+              const link = await this.authService.validateUserRestaurantAccess(
+                payload.sub,
+                finalTargetId,
+              );
+              restaurantId = finalTargetId;
+              role = link.role;
+            }
+          } catch (e) {
+            return res
+              .status(403)
+              .json({ message: 'Acesso negado ao restaurante solicitado' });
+          }
         }
       }
 
+      // Injetar SEMPRE para que o microserviço tenha o contexto validado
+      req.headers['x-user-id'] = payload.sub;
+      req.headers['x-tenant-id'] = restaurantId;
+      req.headers['x-user-role'] = role;
+
       // 3. Preparar a URL e Proxiar
       let newUrl = req.originalUrl.replace(route, '');
-      
+
       if (route === '/api/stock') {
         newUrl = '/stock' + newUrl;
       }
-      
+
       req.url = newUrl;
-      
+
       return this.proxies[route](req, res, next);
     }
-    
+
     next();
   }
 }

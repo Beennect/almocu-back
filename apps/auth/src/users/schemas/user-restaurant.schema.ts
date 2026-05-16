@@ -26,7 +26,8 @@ export class UserRestaurant {
   status!: string;
 }
 
-export const UserRestaurantSchema = SchemaFactory.createForClass(UserRestaurant);
+export const UserRestaurantSchema =
+  SchemaFactory.createForClass(UserRestaurant);
 
 // Garantir que um usuário não tenha vínculos duplicados no mesmo restaurante
 UserRestaurantSchema.index({ userId: 1, restaurantId: 1 }, { unique: true });

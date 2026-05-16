@@ -9,30 +9,34 @@ describe('MenuController (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideGuard(JwtAuthGuard)
-      .useValue({
-        canActivate: (context: ExecutionContext) => {
-          const req = context.switchToHttp().getRequest();
-          req.user = { id: 'test-user-id', restaurantId: 'test-restaurant-id' };
-          return true;
-        },
+    try {
+      const moduleFixture: TestingModule = await Test.createTestingModule({
+        imports: [AppModule],
       })
-      .compile();
+        .overrideGuard(JwtAuthGuard)
+        .useValue({
+          canActivate: (context: ExecutionContext) => {
+            const req = context.switchToHttp().getRequest();
+            req.user = { id: 'test-user-id', restaurantId: 'test-restaurant-id' };
+            return true;
+          },
+        })
+        .compile();
 
-    app = moduleFixture.createNestApplication();
-    await app.init();
+      app = moduleFixture.createNestApplication();
+      await app.init();
+    } catch (error) {
+      console.error('Failed to initialize Menu E2E app:', error);
+    }
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   it('/products (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/products')
-      .expect(200);
+    return request(app.getHttpServer()).get('/products').expect(200);
   });
 });

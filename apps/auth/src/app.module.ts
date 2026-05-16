@@ -18,7 +18,9 @@ import { APP_GUARD } from '@nestjs/core';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGODB_URI') || 'mongodb://mongodb:27017/auth_app',
+        uri:
+          configService.get<string>('MONGODB_URI') ||
+          'mongodb://mongodb:27017/auth_app',
       }),
     }),
     ThrottlerModule.forRootAsync({
@@ -49,8 +51,6 @@ import { APP_GUARD } from '@nestjs/core';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(ProxyMiddleware)
-      .forRoutes('*');
+    consumer.apply(ProxyMiddleware).forRoutes('*');
   }
 }

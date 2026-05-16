@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Product } from '@app/common';
@@ -9,9 +15,7 @@ import { createClient } from 'redis';
 export class ProductService implements OnModuleDestroy {
   private redisClient;
 
-  constructor(
-    @InjectModel(Product.name) private productModel: Model<Product>,
-  ) {
+  constructor(@InjectModel(Product.name) private productModel: Model<Product>) {
     this.initRedis();
   }
 
@@ -22,8 +26,12 @@ export class ProductService implements OnModuleDestroy {
   }
 
   private async initRedis() {
-    this.redisClient = createClient({ url: process.env.REDIS_URI || 'redis://redis:6379' });
-    this.redisClient.on('error', (err) => console.error('Redis Client Error', err));
+    this.redisClient = createClient({
+      url: process.env.REDIS_URI || 'redis://redis:6379',
+    });
+    this.redisClient.on('error', (err) =>
+      console.error('Redis Client Error', err),
+    );
     await this.redisClient.connect();
   }
 
@@ -34,7 +42,11 @@ export class ProductService implements OnModuleDestroy {
     }
   }
 
-  async create(createProductDto: CreateProductDto, userId: string, restaurantId: string) {
+  async create(
+    createProductDto: CreateProductDto,
+    userId: string,
+    restaurantId: string,
+  ) {
     try {
       const newProduct = new this.productModel({
         ...createProductDto,
@@ -46,7 +58,9 @@ export class ProductService implements OnModuleDestroy {
       return saved;
     } catch (error: any) {
       if (error.code === 11000) {
-        throw new ConflictException('Produto com este nome e marca já existe neste restaurante.');
+        throw new ConflictException(
+          'Produto com este nome e marca já existe neste restaurante.',
+        );
       }
       throw error;
     }
@@ -78,14 +92,22 @@ export class ProductService implements OnModuleDestroy {
   }
 
   async findOne(id: string, restaurantId: string) {
-    const product = await this.productModel.findOne({ _id: id, restaurantId }).exec();
+    const product = await this.productModel
+      .findOne({ _id: id, restaurantId })
+      .exec();
     if (!product) throw new NotFoundException('Produto não encontrado.');
     return product;
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto, restaurantId: string) {
+  async update(
+    id: string,
+    updateProductDto: UpdateProductDto,
+    restaurantId: string,
+  ) {
     const updated = await this.productModel
-      .findOneAndUpdate({ _id: id, restaurantId }, updateProductDto, { new: true })
+      .findOneAndUpdate({ _id: id, restaurantId }, updateProductDto, {
+        new: true,
+      })
       .exec();
 
     if (!updated) throw new NotFoundException('Produto não encontrado.');
@@ -95,17 +117,20 @@ export class ProductService implements OnModuleDestroy {
   }
 
   async remove(id: string, restaurantId: string) {
-    const deleted = await this.productModel.findOneAndDelete({ _id: id, restaurantId }).exec();
+    const deleted = await this.productModel
+      .findOneAndDelete({ _id: id, restaurantId })
+      .exec();
     if (!deleted) throw new NotFoundException('Produto não encontrado.');
 
     await this.invalidateCache(restaurantId);
     return { message: 'Produto removido com sucesso' };
   }
   async findByIds(ids: string[], restaurantId: string) {
-    return this.productModel.find({
-      _id: { $in: ids },
-      restaurantId,
-    }).exec();
+    return this.productModel
+      .find({
+        _id: { $in: ids },
+        restaurantId,
+      })
+      .exec();
   }
 }
-

@@ -63,7 +63,9 @@ describe('OrderService', () => {
         }),
       });
 
-      expect(await service.findAllByUser('507f1f77bcf86cd799439011')).toBe(result);
+      expect(await service.findAllByUser('507f1f77bcf86cd799439011')).toBe(
+        result,
+      );
     });
   });
 });

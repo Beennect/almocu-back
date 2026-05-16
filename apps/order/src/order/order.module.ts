@@ -11,8 +11,6 @@ import { Order, OrderSchema } from './order.schema';
     HttpModule,
   ],
 
-
-
   controllers: [OrderController],
   providers: [OrderService],
 })

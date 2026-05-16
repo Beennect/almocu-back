@@ -1,14 +1,26 @@
 import {
-  Controller, Post, Get, Body, UseGuards, Req, Res,
-  ConflictException, HttpCode, HttpStatus,
+  Controller,
+  Post,
+  Get,
+  Body,
+  UseGuards,
+  Req,
+  Res,
+  ConflictException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { Throttle } from '@nestjs/throttler';
 import {
-  ApiTags, ApiOperation, ApiBody,
-  ApiBearerAuth, ApiResponse,
+  ApiTags,
+  ApiOperation,
+  ApiBody,
+  ApiBearerAuth,
+  ApiResponse,
+  ApiHeader,
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { LoginDto } from './dto/login.dto';
@@ -27,17 +39,26 @@ interface AuthenticatedRequest extends Request {
 }
 
 @ApiTags('Auth')
+@ApiHeader({
+  name: 'x-restaurant-id',
+  description:
+    'ID do restaurante para contexto multi-tenant (opcional, sobrescreve o do token)',
+  required: false,
+})
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly usersService: UsersService,
-  ) { }
+  ) {}
 
   @ApiOperation({ summary: 'Realiza o login do usuário' })
   @ApiBody({ type: LoginDto })
   @ApiResponse({ status: 200, description: 'Token JWT e dados do usuário.' })
-  @ApiResponse({ status: 401, description: 'Credenciais inválidas ou conta inativa.' })
+  @ApiResponse({
+    status: 401,
+    description: 'Credenciais inválidas ou conta inativa.',
+  })
   @Throttle({ default: { ttl: 60, limit: 5 } })
   @UseGuards(AuthGuard('local'))
   @HttpCode(HttpStatus.OK)
@@ -64,7 +85,6 @@ export class AuthController {
     return this.authService.register(registerDto);
   }
 
-
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Realiza logout (invalida o token)' })
   @ApiResponse({ status: 200, description: 'Token adicionado à blacklist.' })
@@ -79,7 +99,10 @@ export class AuthController {
 
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Retorna dados do usuário autenticado' })
-  @ApiResponse({ status: 200, description: 'Perfil do usuário e tenant ativo.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Perfil do usuário e tenant ativo.',
+  })
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
   getMe(@Req() req: AuthenticatedRequest) {
@@ -93,27 +116,38 @@ export class AuthController {
     };
   }
 
-  @ApiOperation({ summary: 'Inicia o fluxo de login pelo Google. Aceita ?redirect_uri para mobile.' })
+  @ApiOperation({
+    summary:
+      'Inicia o fluxo de login pelo Google. Aceita ?redirect_uri para mobile.',
+  })
   @Get('google')
   @UseGuards(GoogleAuthGuard)
   async googleAuth(@Req() req: Request) {
     // Redireciona para o Google
   }
 
-  @ApiOperation({ summary: 'Callback do Google para completar o login. Redireciona para o app se houver state.' })
+  @ApiOperation({
+    summary:
+      'Callback do Google para completar o login. Redireciona para o app se houver state.',
+  })
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
-  async googleAuthRedirect(@Req() req: AuthenticatedRequest, @Res() res: Response) {
+  async googleAuthRedirect(
+    @Req() req: AuthenticatedRequest,
+    @Res() res: Response,
+  ) {
     const loginData = await this.authService.login(req.user);
-    
+
     // O Google devolve o que passamos no 'state' como query parameter
     const redirectUri = req.query.state as string;
-    
+
     if (redirectUri) {
       // Redireciona para o App (Deep Link) com o token
       // Ex: exp://127.0.0.1:8081/--/login?token=ey...
       const separator = redirectUri.includes('?') ? '&' : '?';
-      return res.redirect(`${redirectUri}${separator}token=${loginData.access_token}`);
+      return res.redirect(
+        `${redirectUri}${separator}token=${loginData.access_token}`,
+      );
     }
 
     // Se não houver redirect_uri, retorna o JSON padrão

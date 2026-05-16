@@ -11,10 +11,10 @@ import { JwtAuthModule } from '@app/common';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGODB_URI') || 'mongodb://mongodb:27017/almocu_order',
-
+        uri:
+          configService.get<string>('MONGODB_URI') ||
+          'mongodb://mongodb:27017/almocu_order',
       }),
-
     }),
     JwtAuthModule,
     OrderModule,

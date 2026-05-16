@@ -9,30 +9,37 @@ describe('StockController (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideGuard(JwtAuthGuard)
-      .useValue({
-        canActivate: (context: ExecutionContext) => {
-          const req = context.switchToHttp().getRequest();
-          req.user = { id: '6458f3f4e4b0c5e8d5f3a1b2', restaurantId: '6458f3f4e4b0c5e8d5f3a1b3' };
-          return true;
-        },
+    try {
+      const moduleFixture: TestingModule = await Test.createTestingModule({
+        imports: [AppModule],
       })
-      .compile();
+        .overrideGuard(JwtAuthGuard)
+        .useValue({
+          canActivate: (context: ExecutionContext) => {
+            const req = context.switchToHttp().getRequest();
+            req.user = {
+              id: '6458f3f4e4b0c5e8d5f3a1b2',
+              restaurantId: '6458f3f4e4b0c5e8d5f3a1b3',
+            };
+            return true;
+          },
+        })
+        .compile();
 
-    app = moduleFixture.createNestApplication();
-    await app.init();
+      app = moduleFixture.createNestApplication();
+      await app.init();
+    } catch (error) {
+      console.error('Failed to initialize E2E app:', error);
+    }
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   it('/stock (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/stock')
-      .expect(200);
+    return request(app.getHttpServer()).get('/stock').expect(200);
   });
 });

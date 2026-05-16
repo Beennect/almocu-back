@@ -86,7 +86,9 @@ describe('AuthService', () => {
       expect(result).toBeDefined();
       expect(result.username).toBe('testuser');
       expect(result.password).toBeUndefined();
-      expect(mockUsersService.findOneByUsername).toHaveBeenCalledWith('testuser');
+      expect(mockUsersService.findOneByUsername).toHaveBeenCalledWith(
+        'testuser',
+      );
     });
 
     it('deve retornar null quando senha é inválida', async () => {
@@ -98,7 +100,10 @@ describe('AuthService', () => {
       };
       mockUsersService.findOneByUsername.mockResolvedValue(mockUser);
 
-      const result = await authService.validateUser('testuser', 'wrongpassword');
+      const result = await authService.validateUser(
+        'testuser',
+        'wrongpassword',
+      );
 
       expect(result).toBeNull();
     });
@@ -106,7 +111,10 @@ describe('AuthService', () => {
     it('deve retornar null quando usuário não existe', async () => {
       mockUsersService.findOneByUsername.mockResolvedValue(null);
 
-      const result = await authService.validateUser('nonexistent', 'password123');
+      const result = await authService.validateUser(
+        'nonexistent',
+        'password123',
+      );
 
       expect(result).toBeNull();
     });
@@ -125,7 +133,14 @@ describe('AuthService', () => {
       mockUserRestaurantModel.find.mockReturnValue({
         populate: jest.fn().mockReturnValue({
           exec: jest.fn().mockResolvedValue([
-            { restaurantId: { _id: '507f191e810c19729de860ea', name: 'Restaurante A', status: 'active' }, role: 'admin' }
+            {
+              restaurantId: {
+                _id: '507f191e810c19729de860ea',
+                name: 'Restaurante A',
+                status: 'active',
+              },
+              role: 'admin',
+            },
           ]),
         }),
       });
@@ -143,7 +158,7 @@ describe('AuthService', () => {
           _id: '507f1f77bcf86cd799439011',
           sub: '507f1f77bcf86cd799439011',
           restaurantId: '507f191e810c19729de860ea',
-          role: 'admin'
+          role: 'admin',
         }),
       );
     });
@@ -160,8 +175,22 @@ describe('AuthService', () => {
       mockUserRestaurantModel.find.mockReturnValue({
         populate: jest.fn().mockReturnValue({
           exec: jest.fn().mockResolvedValue([
-            { restaurantId: { _id: '507f191e810c19729de860ea', name: 'Restaurante A', status: 'active' }, role: 'admin' },
-            { restaurantId: { _id: '507f191e810c19729de860eb', name: 'Restaurante B', status: 'active' }, role: 'user' }
+            {
+              restaurantId: {
+                _id: '507f191e810c19729de860ea',
+                name: 'Restaurante A',
+                status: 'active',
+              },
+              role: 'admin',
+            },
+            {
+              restaurantId: {
+                _id: '507f191e810c19729de860eb',
+                name: 'Restaurante B',
+                status: 'active',
+              },
+              role: 'user',
+            },
           ]),
         }),
       });

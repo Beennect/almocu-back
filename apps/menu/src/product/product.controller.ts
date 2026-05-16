@@ -1,11 +1,33 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiHeader,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '@app/common';
 
 @ApiTags('products')
 @ApiBearerAuth()
+@ApiHeader({
+  name: 'x-restaurant-id',
+  description:
+    'ID do restaurante para contexto multi-tenant (opcional, sobrescreve o do token)',
+  required: false,
+})
 @UseGuards(JwtAuthGuard)
 @Controller('products')
 export class ProductController {
@@ -13,10 +35,7 @@ export class ProductController {
 
   @Post()
   @ApiOperation({ summary: 'Cria um novo produto no cardápio' })
-  create(
-    @Body() createProductDto: CreateProductDto,
-    @Req() req: any,
-  ) {
+  create(@Body() createProductDto: CreateProductDto, @Req() req: any) {
     const userId = req.user.id;
     const restaurantId = req.user.restaurantId;
     return this.productService.create(createProductDto, userId, restaurantId);
@@ -69,4 +88,3 @@ export class ProductController {
     return this.productService.findByIds(ids, restaurantId);
   }
 }
-

@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class CreateStockDto {
   @ApiProperty({ example: 'Feijão Carioca' })
@@ -57,7 +63,10 @@ export class UpdateStockDto {
 }
 
 export class AdjustStockDto {
-  @ApiProperty({ example: -2, description: 'Valor a ser somado ou subtraído da quantidade atual' })
+  @ApiProperty({
+    example: -2,
+    description: 'Valor a ser somado ou subtraído da quantidade atual',
+  })
   @IsNumber()
   delta!: number;
 }

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Order } from './order.schema';
@@ -16,33 +20,45 @@ export class OrderService {
     private readonly configService: ConfigService,
   ) {}
 
-  async create(userId: string, restaurantId: string, createOrderDto: CreateOrderDto, token: string): Promise<Order> {
-    const productIds = createOrderDto.items.map(item => item.productId);
-    
+  async create(
+    userId: string,
+    restaurantId: string,
+    createOrderDto: CreateOrderDto,
+    token: string,
+  ): Promise<Order> {
+    const productIds = createOrderDto.items.map((item) => item.productId);
+
     // Busca os produtos no serviço de Menu via HTTP
-    const menuServiceUrl = this.configService.get<string>('MENU_SERVICE_URL') || 'http://menu-app:3000';
-    
+    const menuServiceUrl =
+      this.configService.get<string>('MENU_SERVICE_URL') ||
+      'http://menu-app:3000';
+
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${menuServiceUrl}/products/batch`, 
+        this.httpService.post(
+          `${menuServiceUrl}/products/batch`,
           { ids: productIds },
-          { headers: { Authorization: token } }
-        )
+          { headers: { Authorization: token } },
+        ),
       );
 
       const products = response.data;
 
       if (products.length !== productIds.length) {
-        throw new BadRequestException('Um ou mais produtos não foram encontrados no cardápio');
+        throw new BadRequestException(
+          'Um ou mais produtos não foram encontrados no cardápio',
+        );
       }
 
       // Mapeia os itens com os dados reais do menu
       let totalValue = 0;
-      const items = createOrderDto.items.map(itemDto => {
-        const product = products.find(p => p._id.toString() === itemDto.productId);
+      const items = createOrderDto.items.map((itemDto) => {
+        const product = products.find(
+          (p) => p._id.toString() === itemDto.productId,
+        );
         const itemTotal = product.price * itemDto.quantity;
         totalValue += itemTotal;
-        
+
         return {
           productId: product._id,
           name: product.name,
@@ -62,13 +78,17 @@ export class OrderService {
       return order.save();
     } catch (error) {
       console.error('Erro ao buscar produtos no menu:', error.message);
-      throw new BadRequestException('Erro ao validar produtos no serviço de menu');
+      throw new BadRequestException(
+        'Erro ao validar produtos no serviço de menu',
+      );
     }
   }
 
-
-
-  async findOne(id: string, userId: string, restaurantId: string): Promise<Order> {
+  async findOne(
+    id: string,
+    userId: string,
+    restaurantId: string,
+  ): Promise<Order> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('ID inválido');
     }
@@ -102,7 +122,12 @@ export class OrderService {
       .exec();
   }
 
-  async updateStatus(id: string, userId: string, restaurantId: string, status: string): Promise<Order> {
+  async updateStatus(
+    id: string,
+    userId: string,
+    restaurantId: string,
+    status: string,
+  ): Promise<Order> {
     const order = await this.orderModel.findOneAndUpdate(
       {
         _id: new Types.ObjectId(id),

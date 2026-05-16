@@ -14,9 +14,9 @@ export class Restaurant {
   @Prop({ unique: true, required: true })
   inviteCode: string;
 
-  @Prop({ 
-    enum: ['BASIC', 'PROFESSIONAL', 'NETWORK', 'PREMIUM'], 
-    default: 'BASIC' 
+  @Prop({
+    enum: ['BASIC', 'PROFESSIONAL', 'NETWORK', 'PREMIUM'],
+    default: 'BASIC',
   })
   plan: string;
 

@@ -16,20 +16,27 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       ignoreExpiration: false,
       secretOrKey:
         configService.get<string>('JWT_SECRET') || 'super-secret-key-123',
+      passReqToCallback: true,
     });
   }
 
-  async validate(payload: any) {
+  async validate(req: any, payload: any) {
     if (!payload?.sub) {
       throw new UnauthorizedException('Token inválido');
     }
+
+    // Se o proxy injetou headers de contexto (previamente validados), nós os usamos.
+    // Caso contrário, usamos os valores originais do token.
+    const restaurantId = req.headers['x-tenant-id'] || payload.restaurantId;
+    const role = req.headers['x-user-role'] || payload.role;
+
     // Retorna o payload decodificado como req.user nos controllers
     return {
       id: payload.sub,
       _id: payload.sub,
       username: payload.username,
-      restaurantId: payload.restaurantId,
-      role: payload.role,
+      restaurantId: restaurantId,
+      role: role,
       globalRoles: payload.globalRoles,
     };
   }

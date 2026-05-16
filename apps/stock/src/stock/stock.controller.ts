@@ -1,11 +1,28 @@
 import {
-  Controller, Get, Post, Body, Patch, Param,
-  Delete, Query, UseGuards, Req,
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+  Req,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { StockService } from './stock.service';
-import { CreateStockDto, UpdateStockDto, AdjustStockDto } from './dto/stock.dto';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  CreateStockDto,
+  UpdateStockDto,
+  AdjustStockDto,
+} from './dto/stock.dto';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiHeader,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '@app/common';
 
 interface AuthenticatedRequest extends Request {
@@ -17,15 +34,28 @@ interface AuthenticatedRequest extends Request {
 
 @ApiTags('stock')
 @ApiBearerAuth()
+@ApiHeader({
+  name: 'x-restaurant-id',
+  description:
+    'ID do restaurante para contexto multi-tenant (opcional, sobrescreve o do token)',
+  required: false,
+})
 @UseGuards(JwtAuthGuard)
 @Controller('stock')
 export class StockController {
-  constructor(private readonly stockService: StockService) { }
+  constructor(private readonly stockService: StockService) {}
 
   @Post()
   @ApiOperation({ summary: 'Cria um novo item no estoque' })
-  create(@Body() createStockDto: CreateStockDto, @Req() req: AuthenticatedRequest) {
-    return this.stockService.create(createStockDto, req.user.id, req.user.restaurantId);
+  create(
+    @Body() createStockDto: CreateStockDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.stockService.create(
+      createStockDto,
+      req.user.id,
+      req.user.restaurantId,
+    );
   }
 
   @Get()
@@ -65,7 +95,11 @@ export class StockController {
     @Body() adjustStockDto: AdjustStockDto,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.stockService.adjustQuantity(id, adjustStockDto.delta, req.user.restaurantId);
+    return this.stockService.adjustQuantity(
+      id,
+      adjustStockDto.delta,
+      req.user.restaurantId,
+    );
   }
 
   @Delete(':id')

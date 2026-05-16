@@ -8,7 +8,7 @@ export class UsersService {
   constructor(
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
-  ) { }
+  ) {}
 
   async findOneByUsername(username: string): Promise<UserDocument | null> {
     // .select('+password') é necessário porque definimos select: false no Schema
@@ -27,8 +27,13 @@ export class UsersService {
     return this.userModel.findOne({ googleId }).exec();
   }
 
-  async update(id: string, updateData: Partial<User>): Promise<UserDocument | null> {
-    return this.userModel.findByIdAndUpdate(id, updateData, { new: true }).exec();
+  async update(
+    id: string,
+    updateData: Partial<User>,
+  ): Promise<UserDocument | null> {
+    return this.userModel
+      .findByIdAndUpdate(id, updateData, { new: true })
+      .exec();
   }
 
   async create(userData: Partial<User>): Promise<UserDocument> {

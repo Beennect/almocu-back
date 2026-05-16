@@ -7,21 +7,25 @@ describe('AuthController (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
+    try {
+      const moduleFixture: TestingModule = await Test.createTestingModule({
+        imports: [AppModule],
+      }).compile();
 
-    app = moduleFixture.createNestApplication();
-    await app.init();
+      app = moduleFixture.createNestApplication();
+      await app.init();
+    } catch (error) {
+      console.error('Failed to initialize Auth E2E app:', error);
+    }
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   it('/ (GET) - health check', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200);
+    return request(app.getHttpServer()).get('/').expect(200);
   });
 });

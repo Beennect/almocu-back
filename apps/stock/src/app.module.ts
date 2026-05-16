@@ -10,7 +10,9 @@ import { JwtAuthModule } from '@app/common';
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGODB_URI') || 'mongodb://mongodb:27017/almocu_stock',
+        uri:
+          configService.get<string>('MONGODB_URI') ||
+          'mongodb://mongodb:27017/almocu_stock',
       }),
       inject: [ConfigService],
     }),

@@ -10,7 +10,10 @@ export class Stock {
   @Prop({ required: true })
   unit!: string;
 
-  @ApiProperty({ example: 0, description: 'Quantidade mínima antes do alerta de estoque baixo' })
+  @ApiProperty({
+    example: 0,
+    description: 'Quantidade mínima antes do alerta de estoque baixo',
+  })
   @Prop({ default: 0 })
   minQuantity!: number;
 
@@ -18,7 +21,11 @@ export class Stock {
   @Prop({ required: true, index: true })
   name!: string;
 
-  @ApiProperty({ example: 'Dona Benta', description: 'Marca do item', required: false })
+  @ApiProperty({
+    example: 'Dona Benta',
+    description: 'Marca do item',
+    required: false,
+  })
   @Prop({ default: '' })
   brand!: string;
 

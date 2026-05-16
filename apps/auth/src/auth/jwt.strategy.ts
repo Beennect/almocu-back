@@ -16,7 +16,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') || 'super-secret-key-123',
+      secretOrKey:
+        configService.get<string>('JWT_SECRET') || 'super-secret-key-123',
       passReqToCallback: true,
     });
   }
@@ -36,25 +37,28 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     // Lógica Dinâmica: Se for enviado um x-restaurant-id no header, validamos na hora
     const headerRestaurantId = req.headers['x-restaurant-id'] as string;
-    
+
     if (headerRestaurantId && headerRestaurantId !== restaurantId) {
-      const link = await this.authService.validateUserRestaurantAccess(payload.sub, headerRestaurantId);
+      const link = await this.authService.validateUserRestaurantAccess(
+        payload.sub,
+        headerRestaurantId,
+      );
       restaurantId = headerRestaurantId;
       role = link.role;
     }
 
     if (!restaurantId && !payload.globalRoles?.includes('admin')) {
-       // Opcional: avisar que não há contexto de restaurante, mas não travar aqui 
-       // Deixa o RolesGuard travar se a rota exigir.
+      // Opcional: avisar que não há contexto de restaurante, mas não travar aqui
+      // Deixa o RolesGuard travar se a rota exigir.
     }
 
-    return { 
-      id: payload.sub, 
-      _id: payload.sub, 
-      username: payload.username, 
+    return {
+      id: payload.sub,
+      _id: payload.sub,
+      username: payload.username,
       globalRoles: payload.globalRoles,
       restaurantId: restaurantId,
-      role: role 
+      role: role,
     };
   }
 }
