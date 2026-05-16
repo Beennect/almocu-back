@@ -21,7 +21,7 @@ interface JwtPayload {
   role: UserRole | null;
 }
 
-interface RestaurantLink {
+export interface RestaurantLink {
   restaurantId: {
     _id: Types.ObjectId;
     name: string;

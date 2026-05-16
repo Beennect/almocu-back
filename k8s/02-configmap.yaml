@@ -1,0 +1,27 @@
+# ─────────────────────────────────────────────────────────────────
+# ConfigMap — Variáveis não-sensíveis (equivalente ao .env)
+# ─────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: almocu-config
+  namespace: almocu
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+
+  # URIs internas dos bancos (usam os nomes dos Services K8S)
+  MONGODB_URI_AUTH: "mongodb://mongodb-service:27017/auth_app"
+  MONGODB_URI_MENU: "mongodb://mongodb-service:27017/almocu"
+  MONGODB_URI_STOCK: "mongodb://mongodb-service:27017/almocu_stock"
+  MONGODB_URI_ORDER: "mongodb://mongodb-service:27017/almocu_order"
+  REDIS_URI: "redis://redis-service:6379"
+
+  # URLs internas dos microserviços (usam os nomes dos Services K8S)
+  MENU_SERVICE_URL: "http://menu-service:3000"
+  STOCK_SERVICE_URL: "http://stock-service:3000"
+  ORDER_SERVICE_URL: "http://order-service:3000"
+  AUTH_SERVICE_URL: "http://auth-service:3000"
+
+  # URL de callback do Google OAuth (atualize para o IP/domínio real)
+  GOOGLE_CALLBACK_URL: "http://localhost:3000/auth/google/callback"

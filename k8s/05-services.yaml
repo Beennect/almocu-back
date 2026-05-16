@@ -1,0 +1,353 @@
+# ─────────────────────────────────────────────────────────────────
+# Menu Service — Deployment + Service (ClusterIP) + HPA
+# ─────────────────────────────────────────────────────────────────
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: menu-app
+  namespace: almocu
+  labels:
+    app: menu-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: menu-app
+  template:
+    metadata:
+      labels:
+        app: menu-app
+    spec:
+      containers:
+        - name: menu-app
+          image: almoco/menu:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: NODE_ENV
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: PORT
+            - name: MONGODB_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: MONGODB_URI_MENU
+            - name: REDIS_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: REDIS_URI
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: almocu-secrets
+                  key: JWT_SECRET
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "300m"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: menu-service
+  namespace: almocu
+spec:
+  selector:
+    app: menu-app
+  type: ClusterIP    # Apenas interno — acessado via auth-app ou order-app
+  ports:
+    - port: 3000
+      targetPort: 3000
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: menu-app-hpa
+  namespace: almocu
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: menu-app
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 15
+
+---
+# ─────────────────────────────────────────────────────────────────
+# Stock Service — Deployment + Service (ClusterIP) + HPA
+# ─────────────────────────────────────────────────────────────────
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stock-app
+  namespace: almocu
+  labels:
+    app: stock-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: stock-app
+  template:
+    metadata:
+      labels:
+        app: stock-app
+    spec:
+      containers:
+        - name: stock-app
+          image: almoco/stock:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: NODE_ENV
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: PORT
+            - name: MONGODB_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: MONGODB_URI_STOCK
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: almocu-secrets
+                  key: JWT_SECRET
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "300m"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: stock-service
+  namespace: almocu
+spec:
+  selector:
+    app: stock-app
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: stock-app-hpa
+  namespace: almocu
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: stock-app
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 15
+
+---
+# ─────────────────────────────────────────────────────────────────
+# Order Service — Deployment + Service (ClusterIP) + HPA
+# ─────────────────────────────────────────────────────────────────
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-app
+  namespace: almocu
+  labels:
+    app: order-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: order-app
+  template:
+    metadata:
+      labels:
+        app: order-app
+    spec:
+      containers:
+        - name: order-app
+          image: almoco/order:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: NODE_ENV
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: PORT
+            - name: MONGODB_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: MONGODB_URI_ORDER
+            - name: MENU_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: MENU_SERVICE_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: almocu-secrets
+                  key: JWT_SECRET
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "300m"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: almocu
+spec:
+  selector:
+    app: order-app
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: order-app-hpa
+  namespace: almocu
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: order-app
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 15
