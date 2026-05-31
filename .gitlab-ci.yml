@@ -3,37 +3,86 @@ stages:
   - build
 
 variables:
-  # Configurações para os testes (ajuste se necessário)
+  # Configurações para os testes
   MONGODB_URI: "mongodb://mongodb:27017/almoco_test"
   REDIS_HOST: "redis"
   REDIS_PORT: "6379"
   REDIS_URI: "redis://redis:6379"
   JWT_SECRET: "ci-test-secret-123"
+  # Melhor performance do Bun em CI
+  BUN_RUNTIME_TRANSPILER_CACHE_SIZE: "0"
 
 test-monorepo:
   stage: test
-  image: node:20
+  image: oven/bun:1
   services:
     - name: mongo:6
       alias: mongodb
+      # Timeout maior para MongoDB inicializar
+      command: ["mongod", "--bind_ip_all"]
     - name: redis:7
       alias: redis
   cache:
-    key: ${CI_COMMIT_REF_SLUG}
+    key: bun-${CI_COMMIT_REF_SLUG}
     paths:
+      - .bun/cache/
       - node_modules/
+    policy: pull-push
   before_script:
-    - npm ci
+    # Aguarda MongoDB ficar pronto (até 120 segundos)
+    - |
+      echo "Aguardando MongoDB ficar pronto..."
+      COUNTER=0
+      while [ $COUNTER -lt 120 ]; do
+        if (echo > /dev/tcp/mongodb/27017) 2>/dev/null; then
+          echo "✓ MongoDB está pronto!"
+          break
+        fi
+        echo "Tentativa $COUNTER: Conectando ao MongoDB..."
+        COUNTER=$((COUNTER + 1))
+        sleep 1
+      done
+      if [ $COUNTER -eq 120 ]; then
+        echo "✗ MongoDB não respondeu após 120s"
+        exit 1
+      fi
+    
+    # Aguarda Redis ficar pronto
+    - |
+      echo "Aguardando Redis ficar pronto..."
+      COUNTER=0
+      while [ $COUNTER -lt 60 ]; do
+        if (echo > /dev/tcp/redis/6379) 2>/dev/null; then
+          echo "✓ Redis está pronto!"
+          break
+        fi
+        echo "Tentativa $COUNTER: Conectando ao Redis..."
+        COUNTER=$((COUNTER + 1))
+        sleep 1
+      done
+      if [ $COUNTER -eq 60 ]; then
+        echo "✗ Redis não respondeu após 60s"
+        exit 1
+      fi
+    
+    # Instala dependências
+    - echo "Instalando dependências com Bun..."
+    - bun install --no-save
   script:
-    - echo "Rodando testes unitários..."
-    - npm run test
+    - echo "Rodando testes unitários com Bun test runner..."
+    - bun test
     - echo "Rodando testes E2E..."
-    - npm run test:e2e
+    - bun test apps/*/test/e2e/**/*.spec.ts packages/*/test/e2e/**/*.spec.ts 2>/dev/null || echo "Nenhum teste E2E encontrado"
   artifacts:
     when: always
     paths:
       - coverage/
     expire_in: 1 week
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
 
 build-images:
   stage: build

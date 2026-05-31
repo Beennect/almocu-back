@@ -11,82 +11,159 @@ import {
 } from '@nestjs/common';
 import { OrderService } from './order.service';
 import { CreateOrderDto, UpdateOrderStatusDto } from './dto/create-order.dto';
+import { OrderPageDto } from './dto/order-page.dto';
 import {
   ApiTags,
   ApiOperation,
+  ApiQuery,
+  ApiOkResponse,
   ApiBearerAuth,
   ApiHeader,
+  ApiForbiddenResponse,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '@app/common';
+import {
+  JwtAuthGuard,
+  RolesGuard,
+  PageableParams,
+  RestaurantId,
+} from '@app/common';
+import { Roles } from '@app/common';
+import type { Pageable } from '@app/common';
 
 @ApiTags('orders')
 @ApiBearerAuth()
 @ApiHeader({
   name: 'x-restaurant-id',
-  description:
-    'ID do restaurante para contexto multi-tenant (opcional, sobrescreve o do token)',
-  required: false,
+  description: 'ID do restaurante',
+  required: true,
 })
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('orders')
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 
   @Post()
   @ApiOperation({ summary: 'Cria um novo pedido' })
-  create(@Req() req: any, @Body() createOrderDto: CreateOrderDto) {
+  @Roles('WAITER', 'KITCHEN', 'OWNER', 'MANAGER')
+  @ApiForbiddenResponse({
+    description: 'Garçons, cozinheiros, gerentes e proprietários',
+  })
+  create(
+    @Req() req: any,
+    @Body() createOrderDto: CreateOrderDto,
+    @RestaurantId() restaurantId: string,
+  ) {
     const token = req.headers.authorization;
     return this.orderService.create(
       req.user.id,
-      req.user.restaurantId,
+      req.user.role,
+      restaurantId,
       createOrderDto,
       token,
     );
   }
 
   @Get()
-  @ApiOperation({ summary: 'Lista todos os pedidos do restaurante' })
-  findAll(@Req() req: any) {
-    const restaurantId = req.user.restaurantId;
-    return this.orderService.findAllByRestaurant(restaurantId);
+  @ApiOperation({
+    summary: 'Lista todos os pedidos do restaurante com paginação',
+  })
+  @Roles('KITCHEN', 'DELIVERY', 'OWNER', 'MANAGER')
+  @ApiForbiddenResponse({
+    description: 'Cozinheiros, entregadores, gerentes e proprietários',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Número da página (padrão: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Itens por página (padrão: 10, máximo: 100)',
+    example: 10,
+  })
+  @ApiOkResponse({
+    type: OrderPageDto,
+    description: 'Lista paginada de pedidos do restaurante',
+  })
+  findAll(
+    @RestaurantId() restaurantId: string,
+    @PageableParams() pageable: Pageable,
+  ) {
+    return this.orderService.findAllByRestaurant(restaurantId, pageable);
   }
 
   @Get('user')
-  @ApiOperation({ summary: 'Lista todos os pedidos do usuário logado' })
-  findAllByUser(@Req() req: any) {
-    const userId = req.user.id;
-    return this.orderService.findAllByUser(userId);
+  @ApiOperation({
+    summary: 'Lista todos os pedidos do usuário logado com paginação',
+  })
+  @Roles('WAITER', 'KITCHEN', 'DELIVERY', 'OWNER', 'MANAGER')
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Número da página (padrão: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Itens por página (padrão: 10, máximo: 100)',
+    example: 10,
+  })
+  @ApiOkResponse({
+    type: OrderPageDto,
+    description: 'Lista paginada de pedidos do usuário',
+  })
+  findAllByUser(@Req() req: any, @PageableParams() pageable: Pageable) {
+    return this.orderService.findAllByUser(req.user.id, pageable);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Busca um pedido pelo ID' })
-  findOne(@Param('id') id: string, @Req() req: any) {
-    const userId = req.user.id;
-    const restaurantId = req.user.restaurantId;
-    return this.orderService.findOne(id, userId, restaurantId);
+  @Roles('WAITER', 'KITCHEN', 'DELIVERY', 'OWNER', 'MANAGER')
+  findOne(
+    @Param('id') id: string,
+    @Req() req: any,
+    @RestaurantId() restaurantId: string,
+  ) {
+    return this.orderService.findOne(
+      id,
+      req.user.id,
+      req.user.role,
+      restaurantId,
+    );
   }
 
   @Patch(':id/status')
   @ApiOperation({ summary: 'Atualiza o status de um pedido' })
+  @Roles('KITCHEN', 'DELIVERY', 'OWNER', 'MANAGER')
+  @ApiForbiddenResponse({
+    description: 'Restrito por função (ver documentação interna)',
+  })
   updateStatus(
     @Param('id') id: string,
     @Req() req: any,
     @Body() updateStatusDto: UpdateOrderStatusDto,
+    @RestaurantId() restaurantId: string,
   ) {
-    const userId = req.user.id;
-    const restaurantId = req.user.restaurantId;
     return this.orderService.updateStatus(
       id,
-      userId,
       restaurantId,
       updateStatusDto.status,
+      req.user.role,
     );
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Deleta um pedido' })
-  remove(@Param('id') id: string, @Req() req: any) {
-    const restaurantId = req.user.restaurantId;
+  @Roles('OWNER', 'MANAGER')
+  @ApiForbiddenResponse({ description: 'Apenas proprietários e gerentes' })
+  remove(@Param('id') id: string, @RestaurantId() restaurantId: string) {
     return this.orderService.remove(id, restaurantId);
   }
 }

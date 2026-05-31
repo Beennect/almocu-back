@@ -1,5 +1,7 @@
 export { JwtAuthModule } from './modules/jwt-auth.module';
 export { JwtAuthGuard } from './guards/jwt-auth.guard';
-export { TenantGuard } from './guards/tenant.guard';
+export { RolesGuard } from './guards/roles.guard';
 export { JwtStrategy } from './strategies/jwt.strategy';
-export * from './schemas/product.schema';
+export { RedisService } from './redis/redis.service';
+export * from './interfaces';
+export * from './decorators';

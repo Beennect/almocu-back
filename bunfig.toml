@@ -1,0 +1,5 @@
+[test]
+# Encontra todos os testes unitários *.spec.ts na pasta src do monorepo
+glob = ["apps/*/src/**/*.spec.ts", "libs/*/src/**/*.spec.ts"]
+# Timeout padrão para cada teste (em ms)
+timeout = 10000

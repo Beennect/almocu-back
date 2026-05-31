@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { OrderModule } from './order/order.module';
 import { JwtAuthModule } from '@app/common';
+import { StripeModule } from './stripe/stripe.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { JwtAuthModule } from '@app/common';
     }),
     JwtAuthModule,
     OrderModule,
+    StripeModule,
   ],
 })
 export class AppModule {}

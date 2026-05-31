@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -9,7 +14,7 @@ import {
   UserRestaurant,
   UserRestaurantDocument,
   UserRole,
-} from '../users/schemas/user-restaurant.schema';
+} from '../users/user-restaurant.schema';
 import { RegisterDto } from './dto/register.dto';
 
 interface JwtPayload {
@@ -21,7 +26,7 @@ interface JwtPayload {
   role: UserRole | null;
 }
 
-export interface RestaurantLink {
+interface RestaurantLink {
   restaurantId: {
     _id: Types.ObjectId;
     name: string;
@@ -76,47 +81,18 @@ export class AuthService {
     return user.toJSON();
   }
 
-  async login(user: any, requestedRestaurantId?: string) {
+  async login(user: any) {
     const userLinks = (await this.userRestaurantModel
       .find({ userId: new Types.ObjectId(user.id), status: 'active' })
       .populate('restaurantId')
       .exec()) as unknown as RestaurantLink[];
 
-    let restaurantId: string | null = null;
-    let role: UserRole | null = null;
-
-    if (requestedRestaurantId) {
-      const link = userLinks.find(
-        (l) => l.restaurantId._id.toString() === requestedRestaurantId,
-      );
-
-      if (!link) {
-        throw new UnauthorizedException(
-          'Você não tem acesso a este restaurante',
-        );
-      }
-      if (link.restaurantId.status !== 'active') {
-        throw new UnauthorizedException(
-          'Este restaurante está inativo ou suspenso',
-        );
-      }
-
-      restaurantId = requestedRestaurantId;
-      role = link.role;
-    } else if (userLinks.length === 1) {
-      const singleLink = userLinks[0];
-      if (singleLink.restaurantId.status === 'active') {
-        restaurantId = singleLink.restaurantId._id.toString();
-        role = singleLink.role;
-      }
-    }
-
     const payload = this.buildPayload({
       username: user.username,
       sub: user.id,
       globalRoles: user.globalRoles,
-      restaurantId,
-      role,
+      restaurantId: null,
+      role: null,
     });
 
     return {
@@ -135,9 +111,6 @@ export class AuthService {
             role: link.role,
             status: link.restaurantId.status,
           })),
-        activeRestaurantId: restaurantId,
-        activeRole: role,
-        needsRestaurantSelection: userLinks.length > 1 && !restaurantId,
       },
     };
   }
@@ -200,6 +173,28 @@ export class AuthService {
     return user;
   }
 
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Usuário não encontrado');
+    }
+
+    const fullUser = await this.usersService.findOneByUsername(user.username);
+    if (
+      !fullUser?.password ||
+      !(await bcrypt.compare(currentPassword, fullUser.password))
+    ) {
+      throw new BadRequestException('Senha atual incorreta');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.usersService.update(userId, { password: hashedPassword });
+  }
+
   async logout(token: string) {
     try {
       const decoded = this.jwtService.decode(token);
@@ -209,8 +204,11 @@ export class AuthService {
           await this.redisService.addToBlacklist(token, expiresIn);
         }
       }
-    } catch {
-      // Token malformado — sem ação necessária
+    } catch (error) {
+      this.logger.warn(
+        'Failed to blacklist token during logout',
+        (error as Error).message,
+      );
     }
   }
 

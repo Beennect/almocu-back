@@ -9,4 +9,9 @@ export class AppController {
   getHello(): string {
     return this.appService.getHello();
   }
+
+  @Get('api/unified-json')
+  getUnifiedSwagger() {
+    return this.appService.getUnifiedSwaggerDocument();
+  }
 }

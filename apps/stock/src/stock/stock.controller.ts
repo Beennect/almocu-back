@@ -6,7 +6,6 @@ import {
   Patch,
   Param,
   Delete,
-  Query,
   UseGuards,
   Req,
 } from '@nestjs/common';
@@ -17,18 +16,34 @@ import {
   UpdateStockDto,
   AdjustStockDto,
 } from './dto/stock.dto';
+import { StockPageDto } from './dto/stock-page.dto';
 import {
   ApiTags,
   ApiOperation,
+  ApiQuery,
+  ApiOkResponse,
   ApiBearerAuth,
   ApiHeader,
+  ApiForbiddenResponse,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '@app/common';
+
+import {
+  JwtAuthGuard,
+  RolesGuard,
+  PageableParams,
+  RestaurantId,
+} from '@app/common';
+import { Roles } from '@app/common';
+import type { Pageable } from '@app/common';
 
 interface AuthenticatedRequest extends Request {
   user: {
     id: string;
-    restaurantId: string;
+    _id: string;
+    username: string;
+    globalRoles: string[];
+    restaurantId?: string;
+    role?: string;
   };
 }
 
@@ -36,75 +51,91 @@ interface AuthenticatedRequest extends Request {
 @ApiBearerAuth()
 @ApiHeader({
   name: 'x-restaurant-id',
-  description:
-    'ID do restaurante para contexto multi-tenant (opcional, sobrescreve o do token)',
-  required: false,
+  description: 'ID do restaurante',
+  required: true,
 })
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('OWNER', 'MANAGER')
 @Controller('stock')
 export class StockController {
   constructor(private readonly stockService: StockService) {}
 
   @Post()
   @ApiOperation({ summary: 'Cria um novo item no estoque' })
+  @ApiForbiddenResponse({ description: 'Apenas proprietários e gerentes' })
   create(
     @Body() createStockDto: CreateStockDto,
     @Req() req: AuthenticatedRequest,
+    @RestaurantId() restaurantId: string,
   ) {
-    return this.stockService.create(
-      createStockDto,
-      req.user.id,
-      req.user.restaurantId,
-    );
+    return this.stockService.create(createStockDto, req.user.id, restaurantId);
   }
 
   @Get()
   @ApiOperation({ summary: 'Lista itens do estoque com paginação' })
+  @ApiForbiddenResponse({ description: 'Apenas proprietários e gerentes' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Número da página (padrão: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Itens por página (padrão: 10, máximo: 100)',
+    example: 10,
+  })
+  @ApiOkResponse({
+    type: StockPageDto,
+    description: 'Lista paginada de itens do estoque',
+  })
   findAll(
-    @Req() req: AuthenticatedRequest,
-    @Query('page') page: string,
-    @Query('limit') limit: string,
+    @RestaurantId() restaurantId: string,
+    @PageableParams() pageable: Pageable,
   ) {
-    return this.stockService.findAll(
-      req.user.restaurantId,
-      Number(page) || 1,
-      Number(limit) || 10,
-    );
+    return this.stockService.findAll(restaurantId, pageable);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Busca um item específico' })
-  findOne(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
-    return this.stockService.findOne(id, req.user.restaurantId);
+  @ApiForbiddenResponse({ description: 'Apenas proprietários e gerentes' })
+  findOne(@Param('id') id: string, @RestaurantId() restaurantId: string) {
+    return this.stockService.findOne(id, restaurantId);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Atualiza detalhes de um item' })
+  @ApiForbiddenResponse({ description: 'Apenas proprietários e gerentes' })
   update(
     @Param('id') id: string,
     @Body() updateStockDto: UpdateStockDto,
-    @Req() req: AuthenticatedRequest,
+    @RestaurantId() restaurantId: string,
   ) {
-    return this.stockService.update(id, updateStockDto, req.user.restaurantId);
+    return this.stockService.update(id, updateStockDto, restaurantId);
   }
 
   @Patch(':id/adjust')
   @ApiOperation({ summary: 'Ajusta a quantidade (entrada/saída) de um item' })
+  @ApiForbiddenResponse({ description: 'Apenas proprietários e gerentes' })
   adjust(
     @Param('id') id: string,
     @Body() adjustStockDto: AdjustStockDto,
-    @Req() req: AuthenticatedRequest,
+    @RestaurantId() restaurantId: string,
   ) {
     return this.stockService.adjustQuantity(
       id,
       adjustStockDto.delta,
-      req.user.restaurantId,
+      restaurantId,
     );
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Remove um item do estoque' })
-  remove(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
-    return this.stockService.remove(id, req.user.restaurantId);
+  @ApiForbiddenResponse({ description: 'Apenas proprietários e gerentes' })
+  remove(@Param('id') id: string, @RestaurantId() restaurantId: string) {
+    return this.stockService.remove(id, restaurantId);
   }
 }

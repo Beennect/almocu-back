@@ -26,14 +26,13 @@ import { APP_GUARD } from '@nestjs/core';
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        throttlers: [
-          {
-            ttl: 60,
-            limit: 10,
-          },
-        ],
-      }),
+      useFactory: (config: ConfigService) => {
+        const ttl = config.get<number>('THROTTLE_TTL', 60);
+        const limit = config.get<number>('THROTTLE_LIMIT', 120);
+        return {
+          throttlers: [{ ttl, limit }],
+        };
+      },
     }),
     RedisModule,
     AuthModule,

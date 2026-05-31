@@ -23,5 +23,13 @@ data:
   ORDER_SERVICE_URL: "http://order-service:3000"
   AUTH_SERVICE_URL: "http://auth-service:3000"
 
+  # URLs de callback do Stripe
+  STRIPE_SUCCESS_URL: "http://localhost:3000/success"
+  STRIPE_CANCEL_URL: "http://localhost:3000/cancel"
+
+  # Thresholds do rate limiter (auth-app)
+  THROTTLE_TTL: "60"
+  THROTTLE_LIMIT: "120"
+
   # URL de callback do Google OAuth (atualize para o IP/domínio real)
   GOOGLE_CALLBACK_URL: "http://localhost:3000/auth/google/callback"

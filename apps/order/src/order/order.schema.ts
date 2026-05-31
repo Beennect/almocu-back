@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { ApiProperty } from '@nestjs/swagger';
 
 @Schema({ _id: false })
 class OrderItem {
@@ -18,6 +19,32 @@ class OrderItem {
 
 const OrderItemSchema = SchemaFactory.createForClass(OrderItem);
 
+@Schema({ _id: false })
+export class DeliveryAddress {
+  @Prop({ required: true })
+  street: string;
+
+  @Prop({ required: true })
+  number: string;
+
+  @Prop()
+  neighborhood?: string;
+
+  @Prop({ required: true })
+  city: string;
+
+  @Prop({ required: true, maxlength: 2 })
+  state: string;
+
+  @Prop()
+  zipCode?: string;
+
+  @Prop()
+  complement?: string;
+}
+
+const DeliveryAddressSchema = SchemaFactory.createForClass(DeliveryAddress);
+
 @Schema({ timestamps: true })
 export class Order extends Document {
   @Prop({ type: Types.ObjectId, required: true, index: true })
@@ -32,18 +59,54 @@ export class Order extends Document {
   @Prop({ required: true, min: 0 })
   totalValue: number;
 
+  @ApiProperty({
+    example: 'pendente',
+    enum: [
+      'pendente',
+      'em_preparo',
+      'pronto',
+      'saiu_para_entrega',
+      'entregue',
+      'cancelado',
+    ],
+    description: 'Status atual do pedido',
+  })
   @Prop({
     required: true,
-    enum: ['pendente', 'em_preparo', 'pronto', 'entregue', 'cancelado'],
+    enum: [
+      'pendente',
+      'em_preparo',
+      'pronto',
+      'saiu_para_entrega',
+      'entregue',
+      'cancelado',
+    ],
     default: 'pendente',
   })
   status: string;
+
+  @Prop({ type: DeliveryAddressSchema })
+  deliveryAddress?: DeliveryAddress;
 
   @Prop({ maxlength: 50 })
   origin: string;
 
   @Prop({ maxlength: 500 })
   observations: string;
+
+  @Prop({
+    enum: ['pending', 'paid', 'unpaid', 'canceled', 'refunded'],
+    default: 'pending',
+  })
+  paymentStatus: string;
+
+  @Prop()
+  stripeSessionId: string;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
+
+// Índice composto para otimizar a ordenação por data dentro de cada restaurante
+OrderSchema.index({ restaurantId: 1, createdAt: -1 });
+// Índice composto para otimizar a ordenação por data para cada usuário
+OrderSchema.index({ userId: 1, createdAt: -1 });

@@ -1,6 +1,19 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 import { ApiProperty } from '@nestjs/swagger';
+
+@Schema({ _id: false })
+class Ingredient {
+  @ApiProperty()
+  @Prop({ type: Types.ObjectId, required: true })
+  stockProductId!: Types.ObjectId;
+
+  @ApiProperty()
+  @Prop({ required: true, min: 1 })
+  quantity!: number;
+}
+
+const IngredientSchema = SchemaFactory.createForClass(Ingredient);
 
 @Schema({ timestamps: true })
 export class Product extends Document {
@@ -20,9 +33,9 @@ export class Product extends Document {
   @Prop()
   description!: string;
 
-  @ApiProperty()
-  @Prop({ required: true })
-  stockProductId!: string;
+  @ApiProperty({ type: [Ingredient] })
+  @Prop({ type: [IngredientSchema], required: true })
+  ingredients!: Ingredient[];
 
   @ApiProperty()
   @Prop({ required: true, index: true })
@@ -35,5 +48,4 @@ export class Product extends Document {
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
 
-// Índice de unicidade: Nome + Marca + Restaurante
 ProductSchema.index({ name: 1, brand: 1, restaurantId: 1 }, { unique: true });

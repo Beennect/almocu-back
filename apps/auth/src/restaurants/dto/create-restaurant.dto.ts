@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, Matches, IsOptional } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  Matches,
+  IsOptional,
+  Validate,
+} from 'class-validator';
+import { CnpjValidator } from '../validators/cnpj.validator';
 
 export class CreateRestaurantDto {
   @ApiProperty({ example: 'Almoco do Chef' })
@@ -13,6 +20,7 @@ export class CreateRestaurantDto {
   @Matches(/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/, {
     message: 'CNPJ inválido (Formato esperado: 00.000.000/0000-00)',
   })
+  @Validate(CnpjValidator)
   cnpj: string;
 
   @ApiProperty({

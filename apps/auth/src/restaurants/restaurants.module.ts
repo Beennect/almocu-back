@@ -2,11 +2,12 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { RestaurantsController } from './restaurants.controller';
 import { RestaurantsService } from './restaurants.service';
-import { Restaurant, RestaurantSchema } from './schemas/restaurant.schema';
+import { Restaurant, RestaurantSchema } from './restaurant.schema';
 import {
   UserRestaurant,
   UserRestaurantSchema,
-} from '../users/schemas/user-restaurant.schema';
+} from '../users/user-restaurant.schema';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import {
       { name: Restaurant.name, schema: RestaurantSchema },
       { name: UserRestaurant.name, schema: UserRestaurantSchema },
     ]),
+    RedisModule,
   ],
   controllers: [RestaurantsController],
   providers: [RestaurantsService],

@@ -3,42 +3,61 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
-  OnModuleDestroy,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Product } from '@app/common';
+import { Product } from './product.schema';
+import { Pageable, Page, RedisService } from '@app/common';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
-import { createClient } from 'redis';
+import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
-export class ProductService implements OnModuleDestroy {
-  private redisClient;
+export class ProductService {
+  private readonly logger = new Logger(ProductService.name);
 
-  constructor(@InjectModel(Product.name) private productModel: Model<Product>) {
-    this.initRedis();
+  constructor(
+    @InjectModel(Product.name) private productModel: Model<Product>,
+    private readonly httpService: HttpService,
+    private readonly configService: ConfigService,
+    private readonly redisService: RedisService,
+  ) {}
+
+  private async invalidateCache(restaurantId: string): Promise<void> {
+    await this.redisService.incr(`products:cache:version:${restaurantId}`);
   }
 
-  async onModuleDestroy() {
-    if (this.redisClient) {
-      await this.redisClient.quit();
-    }
-  }
+  private async validateStockItem(
+    stockProductId: string,
+    restaurantId: string,
+    token: string,
+    role: string,
+  ): Promise<void> {
+    const stockServiceUrl =
+      this.configService.get<string>('STOCK_SERVICE_URL') ||
+      'http://stock-app:3000';
 
-  private async initRedis() {
-    this.redisClient = createClient({
-      url: process.env.REDIS_URI || 'redis://redis:6379',
-    });
-    this.redisClient.on('error', (err) =>
-      console.error('Redis Client Error', err),
-    );
-    await this.redisClient.connect();
-  }
+    try {
+      await firstValueFrom(
+        this.httpService.get(`${stockServiceUrl}/stock/${stockProductId}`, {
+          headers: {
+            Authorization: token,
+            'x-tenant-id': restaurantId,
+            'x-user-role': role,
+          },
+        }),
+      );
+    } catch (error: any) {
+      const detail =
+        error.response?.data?.message || error.message || 'erro desconhecido';
 
-  private async invalidateCache(restaurantId: string) {
-    const keys = await this.redisClient.keys(`products:${restaurantId}:*`);
-    if (keys.length > 0) {
-      await this.redisClient.del(keys);
+      const status = error.response?.status || 'sem status';
+
+      throw new BadRequestException(
+        `Ingrediente (ID: ${stockProductId}) inválido: ${detail} (HTTP ${status})`,
+      );
     }
   }
 
@@ -46,7 +65,23 @@ export class ProductService implements OnModuleDestroy {
     createProductDto: CreateProductDto,
     userId: string,
     restaurantId: string,
+    token: string,
+    role: string,
   ) {
+    // Valida TODOS os ingredientes em paralelo
+    if (createProductDto.ingredients?.length) {
+      await Promise.all(
+        createProductDto.ingredients.map((ingredient) =>
+          this.validateStockItem(
+            ingredient.stockProductId,
+            restaurantId,
+            token,
+            role,
+          ),
+        ),
+      );
+    }
+
     try {
       const newProduct = new this.productModel({
         ...createProductDto,
@@ -66,34 +101,40 @@ export class ProductService implements OnModuleDestroy {
     }
   }
 
-  async findAll(restaurantId: string, page: number = 1, limit: number = 10) {
-    const cacheKey = `products:${restaurantId}:page:${page}:limit:${limit}`;
-    const cached = await this.redisClient.get(cacheKey);
+  async findAll(
+    restaurantId: string,
+    pageable: Pageable,
+  ): Promise<Page<Product>> {
+    const cacheVersion =
+      (await this.redisService.get(`products:cache:version:${restaurantId}`)) ||
+      '0';
+    const cacheKey = `products:${restaurantId}:v${cacheVersion}:page:${pageable.page}:limit:${pageable.limit}`;
+    const cached = await this.redisService.get(cacheKey);
 
     if (cached) {
-      return JSON.parse(cached);
+      return JSON.parse(cached) as Page<Product>;
     }
 
-    const skip = (page - 1) * limit;
     const [items, total] = await Promise.all([
-      this.productModel.find({ restaurantId }).skip(skip).limit(limit).exec(),
-      this.productModel.countDocuments({ restaurantId }),
+      this.productModel
+        .find({ restaurantId })
+        .skip(pageable.skip)
+        .limit(pageable.limit)
+        .lean()
+        .exec(),
+      this.productModel.countDocuments({ restaurantId }).exec(),
     ]);
 
-    const result = {
-      items,
-      total,
-      pages: Math.ceil(total / limit),
-      currentPage: page,
-    };
+    const result = new Page(items as unknown as Product[], total, pageable);
 
-    await this.redisClient.setEx(cacheKey, 3600, JSON.stringify(result));
+    await this.redisService.set(cacheKey, JSON.stringify(result), 'EX', 3600);
     return result;
   }
 
   async findOne(id: string, restaurantId: string) {
     const product = await this.productModel
       .findOne({ _id: id, restaurantId })
+      .lean()
       .exec();
     if (!product) throw new NotFoundException('Produto não encontrado.');
     return product;
@@ -108,6 +149,7 @@ export class ProductService implements OnModuleDestroy {
       .findOneAndUpdate({ _id: id, restaurantId }, updateProductDto, {
         new: true,
       })
+      .lean()
       .exec();
 
     if (!updated) throw new NotFoundException('Produto não encontrado.');
@@ -125,12 +167,14 @@ export class ProductService implements OnModuleDestroy {
     await this.invalidateCache(restaurantId);
     return { message: 'Produto removido com sucesso' };
   }
+
   async findByIds(ids: string[], restaurantId: string) {
     return this.productModel
       .find({
         _id: { $in: ids },
         restaurantId,
       })
+      .lean()
       .exec();
   }
 }

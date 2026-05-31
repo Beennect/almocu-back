@@ -1,11 +1,27 @@
 import { ApiProperty, PartialType } from '@nestjs/swagger';
 import {
+  IsArray,
+  IsMongoId,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   Min,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class IngredientDto {
+  @ApiProperty({ example: '60d5ecb8b392d70015f8e32c' })
+  @IsMongoId()
+  @IsNotEmpty()
+  stockProductId!: string;
+
+  @ApiProperty({ example: 1 })
+  @IsNumber()
+  @Min(1)
+  quantity!: number;
+}
 
 export class CreateProductDto {
   @ApiProperty({ example: 'Hamburguer Gourmet' })
@@ -28,10 +44,14 @@ export class CreateProductDto {
   @IsOptional()
   description?: string;
 
-  @ApiProperty({ example: '60d5ecb8b392d70015f8e32c' })
-  @IsString()
-  @IsNotEmpty()
-  stockProductId!: string;
+  @ApiProperty({
+    type: [IngredientDto],
+    example: [{ stockProductId: '60d5ecb8b392d70015f8e32c', quantity: 2 }],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => IngredientDto)
+  ingredients!: IngredientDto[];
 }
 
 export class UpdateProductDto extends PartialType(CreateProductDto) {}

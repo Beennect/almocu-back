@@ -4,15 +4,9 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from '../strategies/jwt.strategy';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { RolesGuard } from '../guards/roles.guard';
+import { RedisService } from '../redis/redis.service';
 
-/**
- * Módulo de autenticação compartilhado.
- * Importe nos apps (menu, stock, order) para habilitar proteção de rotas com JWT.
- *
- * Uso:
- *   imports: [JwtAuthModule]
- *   @UseGuards(JwtAuthGuard) no controller
- */
 @Module({
   imports: [
     PassportModule,
@@ -20,13 +14,12 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        secret:
-          configService.get<string>('JWT_SECRET') || 'super-secret-key-123',
+        secret: configService.getOrThrow<string>('JWT_SECRET'),
         signOptions: { expiresIn: '1d' },
       }),
     }),
   ],
-  providers: [JwtStrategy, JwtAuthGuard],
-  exports: [JwtAuthGuard, JwtModule],
+  providers: [JwtStrategy, JwtAuthGuard, RolesGuard, RedisService],
+  exports: [JwtAuthGuard, RolesGuard, JwtModule, RedisService],
 })
 export class JwtAuthModule {}

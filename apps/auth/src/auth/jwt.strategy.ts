@@ -1,6 +1,6 @@
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../redis/redis.service';
 import { Request } from 'express';
@@ -8,6 +8,8 @@ import { AuthService } from './auth.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+  private readonly logger = new Logger(JwtStrategy.name);
+
   constructor(
     private configService: ConfigService,
     private redisService: RedisService,
@@ -16,13 +18,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey:
-        configService.get<string>('JWT_SECRET') || 'super-secret-key-123',
+      secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
+      algorithms: ['HS256'],
       passReqToCallback: true,
     });
   }
 
-  async validate(req: Request, payload: any) {
+  async validate(
+    req: Request,
+    payload: {
+      sub: string;
+      username: string;
+      globalRoles?: string[];
+      restaurantId?: string;
+      role?: string;
+    },
+  ) {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
@@ -48,8 +59,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     if (!restaurantId && !payload.globalRoles?.includes('admin')) {
-      // Opcional: avisar que não há contexto de restaurante, mas não travar aqui
-      // Deixa o RolesGuard travar se a rota exigir.
+      this.logger.debug(
+        `Usuário ${payload.sub} sem contexto de restaurante — o RolesGuard validará se a rota exigir.`,
+      );
     }
 
     return {

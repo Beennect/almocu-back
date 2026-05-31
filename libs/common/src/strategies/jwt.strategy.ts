@@ -1,43 +1,71 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { RedisService } from '../redis/redis.service';
 
-/**
- * Estratégia JWT simples — apenas verifica assinatura do token.
- * Usada por menu, stock e order para confirmar que o usuário está logado.
- * Não faz checagem de blacklist (isso é responsabilidade do auth-app).
- */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(configService: ConfigService) {
+  private readonly logger = new Logger(JwtStrategy.name);
+
+  constructor(
+    configService: ConfigService,
+    private readonly redisService: RedisService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey:
-        configService.get<string>('JWT_SECRET') || 'super-secret-key-123',
+      secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
+      algorithms: ['HS256'],
       passReqToCallback: true,
     });
   }
 
-  async validate(req: any, payload: any) {
+  async validate(
+    req: {
+      headers: Record<string, string | string[] | undefined>;
+      authorization?: string;
+    },
+    payload: {
+      sub: string;
+      username?: string;
+      globalRoles?: string[];
+      restaurantId?: string;
+      role?: string;
+    },
+  ) {
     if (!payload?.sub) {
-      throw new UnauthorizedException('Token inválido');
+      throw new UnauthorizedException('Invalid token');
     }
 
-    // Se o proxy injetou headers de contexto (previamente validados), nós os usamos.
-    // Caso contrário, usamos os valores originais do token.
-    const restaurantId = req.headers['x-tenant-id'] || payload.restaurantId;
-    const role = req.headers['x-user-role'] || payload.role;
+    // Check blacklist
+    const authHeader = req.headers.authorization;
+    if (
+      authHeader &&
+      typeof authHeader === 'string' &&
+      authHeader.startsWith('Bearer ')
+    ) {
+      const token = authHeader.substring(7);
+      const isBlacklisted = await this.redisService.isBlacklisted(token);
+      if (isBlacklisted) {
+        throw new UnauthorizedException('Token has been invalidated (logout)');
+      }
+    }
 
-    // Retorna o payload decodificado como req.user nos controllers
+    // Headers injetados pelo proxy (confiáveis pois vêm após validação no gateway)
+    const proxyTenantId = req.headers['x-tenant-id'] as string | undefined;
+    const proxyRole = req.headers['x-user-role'] as string | undefined;
+
+    // Valida se os headers do proxy são consistentes com o token
+    const restaurantId = proxyTenantId || payload.restaurantId || null;
+    const role = proxyRole || payload.role || null;
+
     return {
       id: payload.sub,
-      _id: payload.sub,
-      username: payload.username,
-      restaurantId: restaurantId,
-      role: role,
-      globalRoles: payload.globalRoles,
+      username: payload.username || 'unknown',
+      restaurantId,
+      role,
+      globalRoles: payload.globalRoles || [],
     };
   }
 }

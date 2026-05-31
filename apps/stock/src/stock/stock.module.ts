@@ -3,10 +3,12 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { StockService } from './stock.service';
 import { StockController } from './stock.controller';
 import { Stock, StockSchema } from './stock.schema';
+import { SupplierModule } from '../supplier/supplier.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Stock.name, schema: StockSchema }]),
+    SupplierModule,
   ],
   controllers: [StockController],
   providers: [StockService],

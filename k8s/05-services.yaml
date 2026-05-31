@@ -46,6 +46,16 @@ spec:
                 configMapKeyRef:
                   name: almocu-config
                   key: REDIS_URI
+            - name: STOCK_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: STOCK_SERVICE_URL
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: almocu-secrets
+                  key: INTERNAL_API_KEY
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -161,6 +171,16 @@ spec:
                 configMapKeyRef:
                   name: almocu-config
                   key: MONGODB_URI_STOCK
+            - name: REDIS_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: REDIS_URI
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: almocu-secrets
+                  key: INTERNAL_API_KEY
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -276,11 +296,41 @@ spec:
                 configMapKeyRef:
                   name: almocu-config
                   key: MONGODB_URI_ORDER
+            - name: REDIS_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: REDIS_URI
             - name: MENU_SERVICE_URL
               valueFrom:
                 configMapKeyRef:
                   name: almocu-config
                   key: MENU_SERVICE_URL
+            - name: STOCK_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: STOCK_SERVICE_URL
+            - name: STRIPE_SUCCESS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: STRIPE_SUCCESS_URL
+            - name: STRIPE_CANCEL_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: almocu-config
+                  key: STRIPE_CANCEL_URL
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: almocu-secrets
+                  key: INTERNAL_API_KEY
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: almocu-secrets
+                  key: STRIPE_SECRET_KEY
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:

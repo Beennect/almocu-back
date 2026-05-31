@@ -10,13 +10,13 @@ services:
         APP_NAME: auth
     image: almoco/auth:latest
     ports:
-      - "${AUTH_PORT:-3000}:3000"
+      - "3000:3000"
     environment:
-      - NODE_ENV=${NODE_ENV:-production}
+      - NODE_ENV=production
       - PORT=3000
-      - JWT_SECRET=${JWT_SECRET:-super-secret-key-123}
-      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017/auth_app}
-      - REDIS_URI=${REDIS_URI:-redis://redis:6379}
+      - JWT_SECRET=${JWT_SECRET}
+      - MONGODB_URI=mongodb://mongodb:27017/auth_app
+      - REDIS_URI=redis://redis:6379
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
@@ -40,13 +40,14 @@ services:
         APP_NAME: menu
     image: almoco/menu:latest
     ports:
-      - "${MENU_PORT:-3200}:3000"
+      - "3200:3000"
     environment:
-      - NODE_ENV=${NODE_ENV:-production}
+      - NODE_ENV=production
       - PORT=3000
-      - JWT_SECRET=${JWT_SECRET:-super-secret-key-123}
-      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017/almocu}
-      - REDIS_URI=${REDIS_URI:-redis://redis:6379}
+      - JWT_SECRET=${JWT_SECRET}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+      - MONGODB_URI=mongodb://mongodb:27017/almocu
+      - REDIS_URI=redis://redis:6379
     depends_on:
       mongodb:
         condition: service_healthy
@@ -67,15 +68,19 @@ services:
         APP_NAME: stock
     image: almoco/stock:latest
     ports:
-      - "${STOCK_PORT:-3100}:3000"
+      - "3100:3000"
     environment:
-      - NODE_ENV=${NODE_ENV:-production}
+      - NODE_ENV=production
       - PORT=3000
-      - JWT_SECRET=${JWT_SECRET:-super-secret-key-123}
-      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017/almocu_stock}
+      - JWT_SECRET=${JWT_SECRET}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+      - MONGODB_URI=mongodb://mongodb:27017/almocu_stock
+      - REDIS_URI=redis://redis:6379
     depends_on:
       mongodb:
         condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - almoco_network
     restart: unless-stopped
@@ -91,16 +96,19 @@ services:
         APP_NAME: order
     image: almoco/order:latest
     ports:
-      - "${ORDER_PORT:-3300}:3000"
+      - "3300:3000"
     environment:
-      - NODE_ENV=${NODE_ENV:-production}
+      - NODE_ENV=production
       - PORT=3000
-      - JWT_SECRET=${JWT_SECRET:-super-secret-key-123}
-      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017/almocu_order}
-      - MENU_SERVICE_URL=${MENU_SERVICE_URL:-http://menu-app:3000}
+      - JWT_SECRET=${JWT_SECRET}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+      - MONGODB_URI=mongodb://mongodb:27017/almocu_order
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
     depends_on:
       mongodb:
         condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - almoco_network
     restart: unless-stopped
@@ -112,7 +120,7 @@ services:
     image: mongo:7.0
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${MONGO_PORT:-27018}:27017"
+      - "127.0.0.1:27018:27017"
     volumes:
       - mongo_data:/data/db
     healthcheck:
@@ -130,7 +138,7 @@ services:
     image: redis:alpine
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${REDIS_PORT:-63790}:6379"
+      - "127.0.0.1:63790:6379"
     networks:
       - almoco_network
 

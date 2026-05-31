@@ -17,7 +17,11 @@ describe('MenuController (e2e)', () => {
         .useValue({
           canActivate: (context: ExecutionContext) => {
             const req = context.switchToHttp().getRequest();
-            req.user = { id: 'test-user-id', restaurantId: 'test-restaurant-id' };
+            req.user = {
+              id: 'test-user-id',
+              role: 'MANAGER',
+              restaurantId: 'test-restaurant-id',
+            };
             return true;
           },
         })

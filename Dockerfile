@@ -1,36 +1,37 @@
 # ============================================================
 # Stage 1: DEPS — Instala node_modules de produção uma vez
 # Esta camada é cacheada pelo Docker BuildKit.
-# Só roda novamente se package.json ou package-lock.json mudarem.
+# Só roda novamente se package.json ou bun.lockb mudarem.
 # ============================================================
-FROM node:20-alpine AS deps
+FROM oven/bun:1 AS deps
 
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+COPY package.json ./
+RUN bun install --production
 
 # ============================================================
 # Stage 2: BUILD — Instala devDeps e compila o app alvo
 # ============================================================
-FROM node:20-alpine AS build
+FROM oven/bun:1 AS build
 
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json ./
+COPY tsconfig.json tsconfig.build.json ./
+RUN bun install
 
 # Copia todo o monorepo (apps/, libs/, configs)
 COPY . .
 
 # ARG decide qual app compilar (auth | menu | stock | order)
 ARG APP_NAME=auth
-RUN npx nest build ${APP_NAME}
+RUN bun run build ${APP_NAME}
 
 # ============================================================
 # Stage 3: PRODUCTION — Imagem final mínima
 # node_modules de prod vem do stage deps (sem devDeps)
 # dist vem do stage build
 # ============================================================
-FROM node:20-alpine AS production
+FROM oven/bun:1 AS production
 
 WORKDIR /app
 ARG APP_NAME=auth
@@ -48,5 +49,5 @@ COPY --from=build /app/dist/apps/${APP_NAME} ./dist
 
 EXPOSE 3000
 
-# Com webpack, o main.js está sempre na raiz da pasta de output do projeto
-CMD ["node", "dist/main.js"]
+# Executa com o Bun em vez de Node para consumir muito menos memória
+CMD ["bun", "dist/main.js"]

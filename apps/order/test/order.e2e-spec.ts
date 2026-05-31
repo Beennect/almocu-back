@@ -19,6 +19,7 @@ describe('OrderController (e2e)', () => {
             const req = context.switchToHttp().getRequest();
             req.user = {
               id: '6458f3f4e4b0c5e8d5f3a1b2',
+              role: 'MANAGER',
               restaurantId: '6458f3f4e4b0c5e8d5f3a1b3',
             };
             return true;

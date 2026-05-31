@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Body,
   UseGuards,
   Req,
@@ -25,18 +26,20 @@ import {
 import type { Request, Response } from 'express';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { GoogleAuthGuard } from './google-auth.guard';
 
-interface AuthenticatedRequest extends Request {
+type AuthenticatedRequest = Omit<Request, 'user'> & {
   user: {
     id?: string;
+    _id?: string;
     sub?: string;
     username: string;
     globalRoles: string[];
     restaurantId?: string;
     role?: string;
   };
-}
+};
 
 @ApiTags('Auth')
 @ApiHeader({
@@ -63,8 +66,8 @@ export class AuthController {
   @UseGuards(AuthGuard('local'))
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  async login(@Req() req: AuthenticatedRequest, @Body() loginDto: LoginDto) {
-    return this.authService.login(req.user, loginDto.restaurantId);
+  async login(@Req() req: AuthenticatedRequest) {
+    return this.authService.login(req.user);
   }
 
   @ApiOperation({ summary: 'Registra um novo usuário' })
@@ -116,14 +119,35 @@ export class AuthController {
     };
   }
 
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Altera a senha do usuário autenticado' })
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiResponse({ status: 200, description: 'Senha alterada com sucesso.' })
+  @ApiResponse({ status: 400, description: 'Senha atual incorreta.' })
+  @UseGuards(AuthGuard('jwt'))
+  @HttpCode(HttpStatus.OK)
+  @Patch('password')
+  async changePassword(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    const userId = req.user.id ?? req.user.sub!;
+    await this.authService.changePassword(
+      userId,
+      dto.currentPassword,
+      dto.newPassword,
+    );
+    return { message: 'Senha alterada com sucesso' };
+  }
+
   @ApiOperation({
     summary:
       'Inicia o fluxo de login pelo Google. Aceita ?redirect_uri para mobile.',
   })
   @Get('google')
   @UseGuards(GoogleAuthGuard)
-  async googleAuth(@Req() req: Request) {
-    // Redireciona para o Google
+  async googleAuth() {
+    // Redireciona para o Google (fluxo gerenciado pelo GoogleAuthGuard)
   }
 
   @ApiOperation({
@@ -139,9 +163,10 @@ export class AuthController {
     const loginData = await this.authService.login(req.user);
 
     // O Google devolve o que passamos no 'state' como query parameter
-    const redirectUri = req.query.state as string;
+    const state = req.query.state;
+    const redirectUri = Array.isArray(state) ? state[0] : state;
 
-    if (redirectUri) {
+    if (redirectUri && typeof redirectUri === 'string') {
       // Redireciona para o App (Deep Link) com o token
       // Ex: exp://127.0.0.1:8081/--/login?token=ey...
       const separator = redirectUri.includes('?') ? '&' : '?';

@@ -8,23 +8,29 @@ import {
   Patch,
   Param,
   Delete,
-  ForbiddenException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiBody,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { RestaurantsService } from './restaurants.service';
 import {
   CreateRestaurantDto,
   CreateBranchDto,
 } from './dto/create-restaurant.dto';
 import { JoinRestaurantDto } from './dto/join-restaurant.dto';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { UserRole } from '../users/schemas/user-restaurant.schema';
+import { UserRole } from '../users/user-restaurant.schema';
+import type { Request } from 'express';
+import { PageableParams } from '@app/common';
+import type { Pageable } from '@app/common';
 
 @ApiTags('Restaurants')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'))
 @Controller('restaurants')
 export class RestaurantsController {
   constructor(private readonly restaurantsService: RestaurantsService) {}
@@ -32,11 +38,11 @@ export class RestaurantsController {
   @ApiOperation({ summary: 'Cria um novo restaurante master (Matriz)' })
   @ApiBody({ type: CreateRestaurantDto })
   @Post()
-  async create(@Req() req, @Body() createDto: CreateRestaurantDto) {
+  async create(@Req() req: Request, @Body() createDto: CreateRestaurantDto) {
     return this.restaurantsService.create(
       createDto.name,
       createDto.cnpj,
-      req.user.id,
+      req.user!.id,
       createDto.maxBranches,
     );
   }
@@ -46,23 +52,35 @@ export class RestaurantsController {
   })
   @ApiBody({ type: CreateBranchDto })
   @Post('branch')
-  async createBranch(@Req() req, @Body() createDto: CreateBranchDto) {
+  async createBranch(@Req() req: Request, @Body() createDto: CreateBranchDto) {
     return this.restaurantsService.createBranch(
       createDto.name,
       createDto.parentId,
-      req.user.id,
+      req.user!.id,
     );
   }
 
   @ApiOperation({
-    summary: 'Entra em um restaurante usando um código de convite',
+    summary: 'Entra em um restaurante usando um código TOTP de convite',
   })
   @ApiBody({ type: JoinRestaurantDto })
   @Post('join')
-  async join(@Req() req, @Body() joinDto: JoinRestaurantDto) {
+  async join(@Req() req: Request, @Body() joinDto: JoinRestaurantDto) {
     return this.restaurantsService.joinWithInviteCode(
       joinDto.inviteCode,
-      req.user.id,
+      req.user!.id,
+    );
+  }
+
+  @ApiOperation({
+    summary:
+      'Retorna o código TOTP atual do restaurante e o tempo restante (segundos)',
+  })
+  @Get(':id/invite-code')
+  async getInviteCode(@Param('id') restaurantId: string, @Req() req: Request) {
+    return this.restaurantsService.getCurrentInviteCode(
+      restaurantId,
+      req.user!.id,
     );
   }
 
@@ -70,21 +88,36 @@ export class RestaurantsController {
     summary: 'Lista os restaurantes aos quais o usuário pertence',
   })
   @Get('my')
-  async getMyRestaurants(@Req() req) {
-    return this.restaurantsService.findUserRestaurants(req.user.id);
+  async getMyRestaurants(@Req() req: Request) {
+    return this.restaurantsService.findUserRestaurants(req.user!.id);
   }
 
   @ApiOperation({ summary: 'Lista os funcionários do restaurante atual' })
-  @Roles(UserRole.OWNER, UserRole.MANAGER)
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Número da página (padrão: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Itens por página (padrão: 10, máximo: 100)',
+    example: 10,
+  })
   @Get(':id/staff')
-  async getStaff(@Param('id') restaurantId: string, @Req() req) {
-    // Valida se o usuário está acessando o restaurante correto do seu token
-    if (req.user.restaurantId !== restaurantId) {
-      throw new ForbiddenException(
-        'Você não tem acesso a este contexto de restaurante',
-      );
-    }
-    return this.restaurantsService.listStaff(restaurantId);
+  async getStaff(
+    @Param('id') restaurantId: string,
+    @Req() req: Request,
+    @PageableParams() pageable: Pageable,
+  ) {
+    return this.restaurantsService.listStaff(
+      restaurantId,
+      req.user!.id,
+      pageable,
+    );
   }
 
   @ApiOperation({ summary: 'Altera o cargo de um funcionário' })
@@ -93,39 +126,32 @@ export class RestaurantsController {
       properties: { role: { type: 'string', enum: Object.values(UserRole) } },
     },
   })
-  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @Patch(':id/staff/:userId')
   async updateStaff(
     @Param('id') restaurantId: string,
     @Param('userId') targetUserId: string,
     @Body() body: { role: UserRole },
-    @Req() req,
+    @Req() req: Request,
   ) {
-    if (req.user.restaurantId !== restaurantId) {
-      throw new ForbiddenException(
-        'Você não tem acesso a este contexto de restaurante',
-      );
-    }
     return this.restaurantsService.updateStaffRole(
       restaurantId,
       targetUserId,
       body.role,
+      req.user!.id,
     );
   }
 
   @ApiOperation({ summary: 'Remove um funcionário da equipe' })
-  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @Delete(':id/staff/:userId')
   async removeStaff(
     @Param('id') restaurantId: string,
     @Param('userId') targetUserId: string,
-    @Req() req,
+    @Req() req: Request,
   ) {
-    if (req.user.restaurantId !== restaurantId) {
-      throw new ForbiddenException(
-        'Você não tem acesso a este contexto de restaurante',
-      );
-    }
-    return this.restaurantsService.removeStaff(restaurantId, targetUserId);
+    return this.restaurantsService.removeStaff(
+      restaurantId,
+      targetUserId,
+      req.user!.id,
+    );
   }
 }

@@ -4,7 +4,12 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export type StockDocument = Stock & Document;
 
-@Schema({ timestamps: true, collection: 'products' }) // Mantendo 'products' para compatibilidade com os dados atuais
+@Schema({
+  timestamps: true,
+  collection: 'stock_items',
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true },
+})
 export class Stock {
   @ApiProperty({ example: 'kg', description: 'Unidade de medida do item' })
   @Prop({ required: true })
@@ -33,6 +38,12 @@ export class Stock {
   @Prop({ required: true, min: 0 })
   quantity!: number;
 
+  @ApiProperty({
+    example: false,
+    description: 'Indica se o estoque está baixo (quantity <= minQuantity)',
+  })
+  lowStock?: boolean;
+
   // String em vez de ObjectId para facilitar integração via headers (x-restaurant-id)
   @ApiProperty({ example: '64f1a2b3c4d5e6f7a8b9c0d1' })
   @Prop({ required: true, type: String })
@@ -41,9 +52,21 @@ export class Stock {
   @ApiProperty({ example: '64f1a2b3c4d5e6f7a8b9c0d2' })
   @Prop({ required: true, type: String })
   userId!: string;
+
+  @ApiProperty({
+    example: '64f1a2b3c4d5e6f7a8b9c0d3',
+    description: 'ID do fornecedor preferencial',
+    required: false,
+  })
+  @Prop({ type: String })
+  supplierId?: string;
 }
 
 export const StockSchema = SchemaFactory.createForClass(Stock);
+
+StockSchema.virtual('lowStock').get(function (this: StockDocument) {
+  return this.quantity <= this.minQuantity;
+});
 
 // Índice único para evitar duplicados na mesma filial
 StockSchema.index({ name: 1, brand: 1, restaurantId: 1 }, { unique: true });
