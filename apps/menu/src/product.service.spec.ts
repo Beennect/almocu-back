@@ -22,10 +22,12 @@ describe('ProductService', () => {
     new: mock((dto) => dto),
     constructor: mock((dto) => dto),
     find: mock(() => ({
-      skip: mock(() => ({
-        limit: mock(() => ({
-          lean: mock(() => ({
-            exec: mock(() => Promise.resolve([])),
+      sort: mock(() => ({
+        skip: mock(() => ({
+          limit: mock(() => ({
+            lean: mock(() => ({
+              exec: mock(() => Promise.resolve([])),
+            })),
           })),
         })),
       })),
@@ -109,10 +111,12 @@ describe('ProductService', () => {
     it('should return paginated results', async () => {
       const items = [{ name: 'Test Product', price: 10 }];
       mockProductModel.find.mockImplementation(() => ({
-        skip: mock(() => ({
-          limit: mock(() => ({
-            lean: mock(() => ({
-              exec: mock(() => Promise.resolve(items)),
+        sort: mock(() => ({
+          skip: mock(() => ({
+            limit: mock(() => ({
+              lean: mock(() => ({
+                exec: mock(() => Promise.resolve(items)),
+              })),
             })),
           })),
         })),

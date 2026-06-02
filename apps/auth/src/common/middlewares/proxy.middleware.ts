@@ -19,6 +19,7 @@ export class ProxyMiddleware implements NestMiddleware {
       '/api/stock': this.createProxy('http://stock-app:3000'),
       '/api/menu': this.createProxy('http://menu-app:3000'),
       '/api/order': this.createProxy('http://order-app:3000'),
+      '/uploads': this.createProxy('http://menu-app:3000'),
     };
   }
 
@@ -58,6 +59,12 @@ export class ProxyMiddleware implements NestMiddleware {
     );
 
     if (route) {
+      // /uploads é arquivo estático — não precisa de auth, só proxy direto
+      if (route === '/uploads') {
+        req.url = req.originalUrl;
+        return this.proxies[route](req, res, next);
+      }
+
       const isSwaggerJson = req.originalUrl.split('?')[0].endsWith('/api-json');
 
       if (!isSwaggerJson) {

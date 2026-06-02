@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, mock } from 'bun:test';
 import { Test, TestingModule } from '@nestjs/testing';
 import { StockService } from './stock/stock.service';
 import { SupplierService } from './supplier/supplier.service';
+import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
 import { getModelToken } from '@nestjs/mongoose';
 import { Stock } from './stock/stock.schema';
 import { Pageable } from '@app/common';
@@ -38,6 +40,20 @@ describe('StockService', () => {
     findOne: mock(() => Promise.resolve({ _id: 'supplier-id', name: 'Distribuidora' })),
   };
 
+  const mockHttpService = {
+    axiosRef: {
+      delete: mock(() => Promise.resolve({ data: { message: 'ok' } })),
+      post: mock(() => Promise.resolve({ data: {} })),
+      get: mock(() => Promise.resolve({ data: {} })),
+      patch: mock(() => Promise.resolve({ data: {} })),
+    },
+  };
+
+  const mockConfigService = {
+    get: mock(() => 'test-internal-key'),
+    getOrThrow: mock(() => 'test-internal-key'),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -50,6 +66,14 @@ describe('StockService', () => {
           provide: SupplierService,
           useValue: mockSupplierService,
         },
+        {
+          provide: HttpService,
+          useValue: mockHttpService,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
+        },
       ],
     }).compile();
 
@@ -61,6 +85,12 @@ describe('StockService', () => {
     mockStockModel.findOneAndUpdate.mockClear();
     mockStockModel.countDocuments.mockClear();
     mockSupplierService.findOne.mockClear();
+    mockHttpService.axiosRef.delete.mockClear();
+    mockHttpService.axiosRef.post.mockClear();
+    mockHttpService.axiosRef.get.mockClear();
+    mockHttpService.axiosRef.patch.mockClear();
+    mockConfigService.get.mockClear();
+    mockConfigService.getOrThrow.mockClear();
   });
 
   it('should be defined', () => {

@@ -7,9 +7,7 @@ import {
   Param,
   Delete,
   UseGuards,
-  Req,
 } from '@nestjs/common';
-import { Request } from 'express';
 import { SupplierService } from './supplier.service';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
@@ -33,17 +31,6 @@ import {
 import { Roles } from '@app/common';
 import type { Pageable } from '@app/common';
 
-interface AuthenticatedRequest extends Request {
-  user: {
-    id: string;
-    _id: string;
-    username: string;
-    globalRoles: string[];
-    restaurantId?: string;
-    role?: string;
-  };
-}
-
 @ApiTags('suppliers')
 @ApiBearerAuth()
 @ApiHeader({
@@ -64,14 +51,9 @@ export class SupplierController {
   })
   create(
     @Body() createSupplierDto: CreateSupplierDto,
-    @Req() req: AuthenticatedRequest,
     @RestaurantId() restaurantId: string,
   ) {
-    return this.supplierService.create(
-      createSupplierDto,
-      req.user.id,
-      restaurantId,
-    );
+    return this.supplierService.create(createSupplierDto, restaurantId);
   }
 
   @Get()

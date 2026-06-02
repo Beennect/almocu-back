@@ -71,7 +71,6 @@ describe('SupplierService', () => {
       phone: '(11) 99999-8888',
       email: 'joao@distribuidora.com',
     };
-    const userId = 'user-id-123';
     const restaurantId = 'restaurant-id-456';
 
     it('should create a supplier successfully', async () => {
@@ -83,13 +82,12 @@ describe('SupplierService', () => {
           Promise.resolve({
             _id: 'new-id',
             name: dto.name,
-            userId,
             restaurantId,
           }),
         ),
       }));
 
-      const result = await service.create(dto, userId, restaurantId);
+      const result = await service.create(dto, restaurantId);
 
       expect(result).toBeDefined();
       expect(result._id).toBe('new-id');
@@ -107,7 +105,7 @@ describe('SupplierService', () => {
       }));
 
       await expect(
-        service.create(dto, userId, restaurantId),
+        service.create(dto, restaurantId),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -125,7 +123,7 @@ describe('SupplierService', () => {
         ),
       }));
 
-      await service.create(dtoWithSpaces, userId, restaurantId);
+      await service.create(dtoWithSpaces, restaurantId);
 
       expect(mockSupplierModel.findOne).toHaveBeenCalledWith({
         name: 'Distribuidora',

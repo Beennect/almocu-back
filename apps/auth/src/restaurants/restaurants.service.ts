@@ -4,6 +4,8 @@ import {
   ForbiddenException,
   NotFoundException,
   UnauthorizedException,
+  BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -24,6 +26,8 @@ import {
 
 @Injectable()
 export class RestaurantsService {
+  private readonly logger = new Logger(RestaurantsService.name);
+
   constructor(
     @InjectModel(Restaurant.name)
     private restaurantModel: Model<RestaurantDocument>,
@@ -349,5 +353,184 @@ export class RestaurantsService {
       .find({ userId: new Types.ObjectId(userId), status: 'active' })
       .populate('restaurantId')
       .exec();
+  }
+
+  /**
+   * Suspende (soft delete) um restaurante e seus vínculos.
+   * Se for matriz, suspende também todas as filiais.
+   */
+  async suspend(
+    restaurantId: string,
+    userId: string,
+  ): Promise<{ message: string }> {
+    const restaurant = await this.restaurantModel.findById(restaurantId).exec();
+    if (!restaurant) {
+      throw new NotFoundException('Restaurante não encontrado');
+    }
+
+    // Apenas OWNER pode suspender
+    const link = await this.userRestaurantModel
+      .findOne({
+        userId: new Types.ObjectId(userId),
+        restaurantId: restaurant._id,
+        role: UserRole.OWNER,
+        status: 'active',
+      })
+      .exec();
+
+    if (!link) {
+      throw new ForbiddenException(
+        'Apenas o proprietário pode suspender o restaurante',
+      );
+    }
+
+    // IDs para suspender: este restaurante + filiais (se for matriz)
+    const idsToSuspend: Types.ObjectId[] = [restaurant._id as Types.ObjectId];
+
+    if (!restaurant.parentId) {
+      // É matriz — busca filiais
+      const branches = await this.restaurantModel
+        .find({ parentId: restaurant._id })
+        .exec();
+      idsToSuspend.push(...branches.map((b) => b._id as Types.ObjectId));
+    }
+
+    this.logger.debug(
+      `Suspend: idsToSuspend = ${idsToSuspend.map((id) => id.toString()).join(', ')}`,
+    );
+
+    // Suspende restaurantes (findOneAndUpdate garante execução real)
+    for (const id of idsToSuspend) {
+      const result = await this.restaurantModel
+        .findOneAndUpdate(
+          { _id: id },
+          { $set: { status: 'suspended' } },
+          { new: true },
+        )
+        .exec();
+
+      if (!result) {
+        this.logger.error(
+          `Suspend: restaurante ${id.toString()} não encontrado para atualização`,
+        );
+        throw new NotFoundException(
+          `Restaurante com ID ${id.toString()} não encontrado durante suspensão`,
+        );
+      }
+
+      this.logger.debug(
+        `Suspend: restaurante ${id.toString()} → status="${result.status}"`,
+      );
+    }
+
+    // Desativa vínculos de usuários
+    const userLinkResult = await this.userRestaurantModel
+      .updateMany(
+        { restaurantId: { $in: idsToSuspend } },
+        { $set: { status: 'inactive' } },
+      )
+      .exec();
+
+    this.logger.debug(
+      `Suspend: ${userLinkResult.modifiedCount} vínculos de usuários desativados`,
+    );
+
+    this.logger.warn(
+      `Restaurante ${restaurant.name} (${restaurantId}) suspenso por usuário ${userId}. ${idsToSuspend.length - 1} filial(is) também suspensa(s).`,
+    );
+
+    return {
+      message:
+        idsToSuspend.length > 1
+          ? `Restaurante e ${idsToSuspend.length - 1} filial(is) suspensos com sucesso`
+          : 'Restaurante suspenso com sucesso',
+    };
+  }
+
+  /**
+   * Reativa um restaurante suspenso.
+   * Regenera a chave TOTP por segurança.
+   */
+  async reactivate(
+    restaurantId: string,
+    userId: string,
+  ): Promise<{ message: string }> {
+    const restaurant = await this.restaurantModel.findById(restaurantId).exec();
+    if (!restaurant) {
+      throw new NotFoundException('Restaurante não encontrado');
+    }
+
+    if (restaurant.status !== 'suspended') {
+      throw new BadRequestException(
+        'Apenas restaurantes suspensos podem ser reativados',
+      );
+    }
+
+    // Apenas OWNER pode reativar
+    const link = await this.userRestaurantModel
+      .findOne({
+        userId: new Types.ObjectId(userId),
+        restaurantId: restaurant._id,
+        role: UserRole.OWNER,
+      })
+      .exec();
+
+    if (!link) {
+      throw new ForbiddenException(
+        'Apenas o proprietário pode reativar o restaurante',
+      );
+    }
+
+    // IDs para reativar: este + filiais (se for matriz)
+    const idsToReactivate: Types.ObjectId[] = [
+      restaurant._id as Types.ObjectId,
+    ];
+
+    if (!restaurant.parentId) {
+      const branches = await this.restaurantModel
+        .find({ parentId: restaurant._id })
+        .exec();
+      idsToReactivate.push(...branches.map((b) => b._id as Types.ObjectId));
+    }
+
+    // Reativa restaurantes (findOneAndUpdate garante execução real)
+    // Gera um TOTP secret ÚNICO para cada restaurante (campo unique: true no schema)
+    for (const id of idsToReactivate) {
+      const newTotpSecret = generateTotpSecret();
+      const result = await this.restaurantModel
+        .findOneAndUpdate(
+          { _id: id },
+          { $set: { status: 'active', totpSecret: newTotpSecret } },
+          { new: true },
+        )
+        .exec();
+
+      if (!result) {
+        this.logger.error(
+          `Reactivate: restaurante ${id.toString()} não encontrado para atualização`,
+        );
+        throw new NotFoundException(
+          `Restaurante com ID ${id.toString()} não encontrado durante reativação`,
+        );
+      }
+    }
+
+    // Reativa vínculos de usuários
+    const userLinkResult = await this.userRestaurantModel
+      .updateMany(
+        { restaurantId: { $in: idsToReactivate } },
+        { $set: { status: 'active' } },
+      )
+      .exec();
+
+    this.logger.debug(
+      `Reactivate: ${userLinkResult.modifiedCount} vínculos de usuários reativados`,
+    );
+
+    this.logger.log(
+      `Restaurante ${restaurant.name} (${restaurantId}) reativado por usuário ${userId}.`,
+    );
+
+    return { message: 'Restaurante reativado com sucesso' };
   }
 }

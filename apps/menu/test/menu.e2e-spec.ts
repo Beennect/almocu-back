@@ -9,29 +9,28 @@ describe('MenuController (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    try {
-      const moduleFixture: TestingModule = await Test.createTestingModule({
-        imports: [AppModule],
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({
+        canActivate: (context: ExecutionContext) => {
+          const req = context.switchToHttp().getRequest();
+          req.user = {
+            id: 'test-user-id',
+            _id: 'test-user-id',
+            username: 'testuser',
+            globalRoles: ['user'],
+            role: 'MANAGER',
+            restaurantId: 'test-restaurant-id',
+          };
+          return true;
+        },
       })
-        .overrideGuard(JwtAuthGuard)
-        .useValue({
-          canActivate: (context: ExecutionContext) => {
-            const req = context.switchToHttp().getRequest();
-            req.user = {
-              id: 'test-user-id',
-              role: 'MANAGER',
-              restaurantId: 'test-restaurant-id',
-            };
-            return true;
-          },
-        })
-        .compile();
+      .compile();
 
-      app = moduleFixture.createNestApplication();
-      await app.init();
-    } catch (error) {
-      console.error('Failed to initialize Menu E2E app:', error);
-    }
+    app = moduleFixture.createNestApplication();
+    await app.init();
   });
 
   afterAll(async () => {

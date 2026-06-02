@@ -8,6 +8,7 @@ import {
   Patch,
   Param,
   Delete,
+  HttpCode,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import {
@@ -153,5 +154,32 @@ export class RestaurantsController {
       targetUserId,
       req.user!.id,
     );
+  }
+
+  @ApiOperation({
+    summary: 'Suspende um restaurante (soft delete)',
+    description:
+      'Apenas o proprietário pode suspender. Se for matriz, suspende também as filiais. Desativa todos os vínculos de usuários.',
+  })
+  @Delete(':id')
+  @HttpCode(200)
+  async suspend(
+    @Param('id') restaurantId: string,
+    @Req() req: Request,
+  ) {
+    return this.restaurantsService.suspend(restaurantId, req.user!.id);
+  }
+
+  @ApiOperation({
+    summary: 'Reativa um restaurante suspenso',
+    description:
+      'Regenera a chave TOTP por segurança. Reativa os vínculos de usuários.',
+  })
+  @Patch(':id/reactivate')
+  async reactivate(
+    @Param('id') restaurantId: string,
+    @Req() req: Request,
+  ) {
+    return this.restaurantsService.reactivate(restaurantId, req.user!.id);
   }
 }

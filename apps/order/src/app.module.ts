@@ -14,7 +14,9 @@ import { StripeModule } from './stripe/stripe.module';
       useFactory: (configService: ConfigService) => ({
         uri:
           configService.get<string>('MONGODB_URI') ||
-          'mongodb://mongodb:27017/almocu_order',
+          'mongodb://localhost:27017/almocu_order',
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
       }),
     }),
     JwtAuthModule,

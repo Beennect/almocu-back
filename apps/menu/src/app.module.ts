@@ -14,7 +14,9 @@ import { APP_GUARD } from '@nestjs/core';
       useFactory: (configService: ConfigService) => ({
         uri:
           configService.get<string>('MONGODB_URI') ||
-          'mongodb://mongodb:27017/almocu',
+          'mongodb://localhost:27017/almocu',
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
       }),
       inject: [ConfigService],
     }),

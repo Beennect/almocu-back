@@ -19,7 +19,6 @@ export class SupplierService {
 
   async create(
     createSupplierDto: CreateSupplierDto,
-    userId: string,
     restaurantId: string,
   ): Promise<Supplier> {
     const name = createSupplierDto.name.trim();
@@ -36,7 +35,6 @@ export class SupplierService {
     const created = new this.supplierModel({
       ...createSupplierDto,
       name,
-      userId,
       restaurantId,
     });
 
@@ -81,7 +79,12 @@ export class SupplierService {
     updateSupplierDto: UpdateSupplierDto,
     restaurantId: string,
   ): Promise<Supplier> {
-    const updateData: Record<string, unknown> = { ...updateSupplierDto };
+    const updateData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(updateSupplierDto)) {
+      if (value !== undefined) {
+        updateData[key] = value;
+      }
+    }
 
     // Se for alterar o nome, verifica duplicidade
     if (updateData.name) {

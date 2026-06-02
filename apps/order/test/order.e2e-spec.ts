@@ -9,29 +9,28 @@ describe('OrderController (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    try {
-      const moduleFixture: TestingModule = await Test.createTestingModule({
-        imports: [AppModule],
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({
+        canActivate: (context: ExecutionContext) => {
+          const req = context.switchToHttp().getRequest();
+          req.user = {
+            id: 'test-user-id',
+            _id: 'test-user-id',
+            username: 'testuser',
+            globalRoles: ['user'],
+            role: 'MANAGER',
+            restaurantId: 'test-restaurant-id',
+          };
+          return true;
+        },
       })
-        .overrideGuard(JwtAuthGuard)
-        .useValue({
-          canActivate: (context: ExecutionContext) => {
-            const req = context.switchToHttp().getRequest();
-            req.user = {
-              id: '6458f3f4e4b0c5e8d5f3a1b2',
-              role: 'MANAGER',
-              restaurantId: '6458f3f4e4b0c5e8d5f3a1b3',
-            };
-            return true;
-          },
-        })
-        .compile();
+      .compile();
 
-      app = moduleFixture.createNestApplication();
-      await app.init();
-    } catch (error) {
-      console.error('Failed to initialize Order E2E app:', error);
-    }
+    app = moduleFixture.createNestApplication();
+    await app.init();
   });
 
   afterAll(async () => {

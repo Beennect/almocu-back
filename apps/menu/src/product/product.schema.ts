@@ -9,7 +9,7 @@ class Ingredient {
   stockProductId!: Types.ObjectId;
 
   @ApiProperty()
-  @Prop({ required: true, min: 1 })
+  @Prop({ required: true, min: 0 })
   quantity!: number;
 }
 
@@ -21,9 +21,9 @@ export class Product extends Document {
   @Prop({ required: true })
   name!: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'Hamburgueres', description: 'Categoria do produto' })
   @Prop({ required: true })
-  brand!: string;
+  category!: string;
 
   @ApiProperty()
   @Prop({ required: true })
@@ -31,7 +31,14 @@ export class Product extends Document {
 
   @ApiProperty()
   @Prop()
-  description!: string;
+  description?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'URL da imagem do produto',
+  })
+  @Prop()
+  imageUrl?: string;
 
   @ApiProperty({ type: [Ingredient] })
   @Prop({ type: [IngredientSchema], required: true })
@@ -40,12 +47,8 @@ export class Product extends Document {
   @ApiProperty()
   @Prop({ required: true, index: true })
   restaurantId!: string;
-
-  @ApiProperty()
-  @Prop({ required: true })
-  userId!: string;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
 
-ProductSchema.index({ name: 1, brand: 1, restaurantId: 1 }, { unique: true });
+ProductSchema.index({ name: 1, category: 1, restaurantId: 1 }, { unique: true });

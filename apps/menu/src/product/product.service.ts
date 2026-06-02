@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Product } from './product.schema';
 import { Pageable, Page, RedisService } from '@app/common';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
@@ -63,7 +63,6 @@ export class ProductService {
 
   async create(
     createProductDto: CreateProductDto,
-    userId: string,
     restaurantId: string,
     token: string,
     role: string,
@@ -85,16 +84,21 @@ export class ProductService {
     try {
       const newProduct = new this.productModel({
         ...createProductDto,
-        userId,
         restaurantId,
       });
       const saved = await newProduct.save();
-      await this.invalidateCache(restaurantId);
+      try {
+        await this.invalidateCache(restaurantId);
+      } catch (cacheError) {
+        this.logger.error(
+          `Falha ao invalidar cache: ${cacheError}`,
+        );
+      }
       return saved;
     } catch (error: any) {
       if (error.code === 11000) {
         throw new ConflictException(
-          'Produto com este nome e marca já existe neste restaurante.',
+          'Produto com este nome e categoria já existe neste restaurante.',
         );
       }
       throw error;
@@ -118,6 +122,7 @@ export class ProductService {
     const [items, total] = await Promise.all([
       this.productModel
         .find({ restaurantId })
+        .sort({ name: 1 })
         .skip(pageable.skip)
         .limit(pageable.limit)
         .lean()
@@ -166,6 +171,68 @@ export class ProductService {
 
     await this.invalidateCache(restaurantId);
     return { message: 'Produto removido com sucesso' };
+  }
+
+  async updateImage(
+    id: string,
+    restaurantId: string,
+    imageUrl: string,
+  ) {
+    const updated = await this.productModel
+      .findOneAndUpdate(
+        { _id: id, restaurantId },
+        { $set: { imageUrl } },
+        { new: true },
+      )
+      .lean()
+      .exec();
+
+    if (!updated) throw new NotFoundException('Produto não encontrado.');
+
+    await this.invalidateCache(restaurantId);
+    return updated;
+  }
+
+  /**
+   * Remove um ingrediente (pelo stockProductId) de TODOS os produtos
+   * de um restaurante. Usado quando um item de estoque é excluído.
+   * @returns número de produtos modificados
+   */
+  async removeIngredientFromAllProducts(
+    stockProductId: string,
+    restaurantId: string,
+  ): Promise<{ modifiedCount: number }> {
+    const objectId = new Types.ObjectId(stockProductId);
+
+    const result = await this.productModel
+      .updateMany(
+        {
+          restaurantId,
+          'ingredients.stockProductId': objectId,
+        },
+        {
+          $pull: { ingredients: { stockProductId: objectId } },
+        },
+      )
+      .exec();
+
+    if (result.modifiedCount > 0) {
+      // Verifica se algum produto ficou sem ingredientes
+      const emptyProducts = await this.productModel
+        .find({ restaurantId, ingredients: { $size: 0 } })
+        .lean()
+        .exec();
+
+      if (emptyProducts.length > 0) {
+        this.logger.warn(
+          `Produtos sem ingredientes após remoção do estoque: ${emptyProducts.map((p) => (p as any).name).join(', ')}`,
+        );
+      }
+
+      await this.invalidateCache(restaurantId);
+    }
+
+    return { modifiedCount: result.modifiedCount };
   }
 
   async findByIds(ids: string[], restaurantId: string) {

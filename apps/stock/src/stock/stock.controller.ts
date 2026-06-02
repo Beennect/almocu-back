@@ -7,9 +7,7 @@ import {
   Param,
   Delete,
   UseGuards,
-  Req,
 } from '@nestjs/common';
-import { Request } from 'express';
 import { StockService } from './stock.service';
 import {
   CreateStockDto,
@@ -36,17 +34,6 @@ import {
 import { Roles } from '@app/common';
 import type { Pageable } from '@app/common';
 
-interface AuthenticatedRequest extends Request {
-  user: {
-    id: string;
-    _id: string;
-    username: string;
-    globalRoles: string[];
-    restaurantId?: string;
-    role?: string;
-  };
-}
-
 @ApiTags('stock')
 @ApiBearerAuth()
 @ApiHeader({
@@ -65,10 +52,9 @@ export class StockController {
   @ApiForbiddenResponse({ description: 'Apenas proprietários e gerentes' })
   create(
     @Body() createStockDto: CreateStockDto,
-    @Req() req: AuthenticatedRequest,
     @RestaurantId() restaurantId: string,
   ) {
-    return this.stockService.create(createStockDto, req.user.id, restaurantId);
+    return this.stockService.create(createStockDto, restaurantId);
   }
 
   @Get()

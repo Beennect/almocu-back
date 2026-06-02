@@ -1,11 +1,28 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
+
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Cria a pasta de uploads se não existir
+  const uploadsDir = join(__dirname, '..', '..', '..', 'uploads', 'products');
+  if (!existsSync(uploadsDir)) {
+    mkdirSync(uploadsDir, { recursive: true });
+    logger.log(`Pasta de uploads criada: ${uploadsDir}`);
+  }
+
+  // Servir arquivos estáticos (uploads de imagens)
+  app.useStaticAssets(join(__dirname, '..', '..', '..', 'uploads'), {
+    prefix: '/uploads',
+  });
 
   // Security headers
   app.use(helmet());

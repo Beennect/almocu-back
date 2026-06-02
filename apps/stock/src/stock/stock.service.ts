@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -10,17 +11,23 @@ import { Stock, StockDocument } from './stock.schema';
 import { CreateStockDto, UpdateStockDto } from './dto/stock.dto';
 import { Pageable, Page } from '@app/common';
 import { SupplierService } from '../supplier/supplier.service';
+import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class StockService {
+  private readonly logger = new Logger(StockService.name);
+
   constructor(
     @InjectModel(Stock.name) private readonly stockModel: Model<StockDocument>,
     private readonly supplierService: SupplierService,
+    private readonly httpService: HttpService,
+    private readonly configService: ConfigService,
   ) {}
 
   async create(
     createStockDto: CreateStockDto,
-    userId: string,
     restaurantId: string,
   ): Promise<Stock> {
     const name = createStockDto.name.trim();
@@ -36,7 +43,6 @@ export class StockService {
         supplierId: sanitizedSupplierId,
         name,
         brand,
-        userId,
         restaurantId,
       });
       return await created.save();
@@ -156,10 +162,54 @@ export class StockService {
 
   async remove(id: string, restaurantId: string): Promise<void> {
     this.validateObjectId(id);
+
+    // 1. Verifica se o item existe ANTES de começar
+    const item = await this.stockModel
+      .findOne({ _id: id, restaurantId })
+      .exec();
+    if (!item) {
+      throw new NotFoundException('Item de estoque não encontrado.');
+    }
+
+    const internalKey = this.configService.get<string>('INTERNAL_API_KEY');
+    const menuServiceUrl =
+      this.configService.get<string>('MENU_SERVICE_URL') ||
+      'http://menu-app:3000';
+
+    // 2. Remove o ingrediente de todos os produtos do cardápio
+    try {
+      await firstValueFrom(
+        this.httpService.delete(
+          `${menuServiceUrl}/products/internal/ingredient/${id}`,
+          {
+            headers: {
+              'x-internal-key': internalKey,
+              'x-tenant-id': restaurantId,
+            },
+          },
+        ),
+      );
+    } catch (error: any) {
+      const status = error.response?.status;
+
+      // 404 significa que nenhum produto tinha esse ingrediente — não é erro
+      if (status !== 404 && status !== 204) {
+        this.logger.error(
+          `Falha ao remover ingrediente ${id} dos produtos: ${error.message}`,
+        );
+        throw new BadRequestException(
+          'Não foi possível remover o ingrediente dos produtos do cardápio.',
+        );
+      }
+    }
+
+    // 3. Deleta o item do estoque
     const result = await this.stockModel
       .deleteOne({ _id: id, restaurantId })
       .exec();
+
     if (result.deletedCount === 0) {
+      // Caso raro: item foi deletado entre a verificação e a deleção
       throw new NotFoundException('Item de estoque não encontrado.');
     }
   }

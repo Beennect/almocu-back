@@ -20,7 +20,9 @@ import { APP_GUARD } from '@nestjs/core';
       useFactory: (configService: ConfigService) => ({
         uri:
           configService.get<string>('MONGODB_URI') ||
-          'mongodb://mongodb:27017/auth_app',
+          'mongodb://localhost:27017/auth_app',
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
       }),
     }),
     ThrottlerModule.forRootAsync({
