@@ -25,7 +25,21 @@ export class RedisService implements OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    await this.redisClient.quit();
+    try {
+      // Verifica se o cliente ainda está conectado antes de tentar quit
+      if (this.redisClient.status === 'ready') {
+        await this.redisClient.quit();
+      } else {
+        this.redisClient.disconnect();
+      }
+    } catch (error) {
+      // Durante o encerramento do app, o stream pode já estar fechado.
+      // Isso é comum em testes onde o lifecycle é mais agressivo.
+      this.logger.warn(
+        'Redis quit during shutdown',
+        (error as Error).message,
+      );
+    }
   }
 
   async isBlacklisted(token: string): Promise<boolean> {
