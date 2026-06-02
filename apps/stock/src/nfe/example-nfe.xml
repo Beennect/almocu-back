@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+  <NFe>
+    <infNFe Id="NFe35200612345678000190550010000000011000000010" versao="4.00">
+      <ide>
+        <cUF>35</cUF>
+        <cNF>00000001</cNF>
+        <natOp>VENDA PRODUCAO DO ESTABELECIMENTO</natOp>
+        <mod>55</mod>
+        <serie>1</serie>
+        <nNF>1</nNF>
+        <dhEmi>2026-05-25T10:00:00-03:00</dhEmi>
+        <tpNF>1</tpNF>
+        <idDest>1</idDest>
+        <cMunFG>3550308</cMunFG>
+        <tpImp>1</tpImp>
+        <tpEmis>1</tpEmis>
+        <cDV>1</cDV>
+        <tpAmb>2</tpAmb>
+        <finNFe>1</finNFe>
+        <indFinal>1</indFinal>
+        <indPres>1</indPres>
+        <procEmi>0</procEmi>
+        <verProc>TESTE 1.0</verProc>
+      </ide>
+      <emit>
+        <CNPJ>12345678000190</CNPJ>
+        <xNome>DISTRIBUIDORA RYZEN LTDA</xNome>
+        <xFant>RYZEN DISTRIBUICAO</xFant>
+        <enderEmit>
+          <xLgr>RUA DAS INDUSTRIAS</xLgr>
+          <nro>1000</nro>
+          <xBairro>DISTRITO INDUSTRIAL</xBairro>
+          <cMun>3550308</cMun>
+          <xMun>SAO PAULO</xMun>
+          <UF>SP</UF>
+          <CEP>01001001</CEP>
+          <cPais>1058</cPais>
+          <xPais>BRASIL</xPais>
+          <fone>1130000000</fone>
+        </enderEmit>
+        <IE>123456789</IE>
+        <CRT>3</CRT>
+      </emit>
+      <dest>
+        <CNPJ>98765432000199</CNPJ>
+        <xNome>RESTAURANTE EXEMPLO LTDA</xNome>
+        <enderDest>
+          <xLgr>RUA DAS PALMEIRAS</xLgr>
+          <nro>500</nro>
+          <xBairro>CENTRO</xBairro>
+          <cMun>3550308</cMun>
+          <xMun>SAO PAULO</xMun>
+          <UF>SP</UF>
+          <CEP>01002002</CEP>
+          <cPais>1058</cPais>
+          <xPais>BRASIL</xPais>
+          <fone>1120000000</fone>
+        </enderDest>
+        <indIEDest>1</indIEDest>
+        <IE>987654321</IE>
+      </dest>
+      <det n="1">
+        <prod>
+          <cProd>AG-001</cProd>
+          <cEAN>SEM GTIN</cEAN>
+          <xProd>AGUA MINERAL NATURAL RYZEN 1L</xProd>
+          <NCM>22011000</NCM>
+          <CFOP>5405</CFOP>
+          <uCom>UN</uCom>
+          <qCom>100.0000</qCom>
+          <vUnCom>2.5000</vUnCom>
+          <vProd>250.00</vProd>
+          <cEANTrib>SEM GTIN</cEANTrib>
+          <uTrib>UN</uTrib>
+          <qTrib>100.0000</qTrib>
+          <vUnTrib>2.5000</vUnTrib>
+          <indTot>1</indTot>
+        </prod>
+      </det>
+      <det n="2">
+        <prod>
+          <cProd>AG-002</cProd>
+          <cEAN>SEM GTIN</cEAN>
+          <xProd>AGUA MINERAL NATURAL BBZ 500ML</xProd>
+          <NCM>22011000</NCM>
+          <CFOP>5405</CFOP>
+          <uCom>UN</uCom>
+          <qCom>50.0000</qCom>
+          <vUnCom>1.8000</vUnCom>
+          <vProd>90.00</vProd>
+          <cEANTrib>SEM GTIN</cEANTrib>
+          <uTrib>UN</uTrib>
+          <qTrib>50.0000</qTrib>
+          <vUnTrib>1.8000</vUnTrib>
+          <indTot>1</indTot>
+        </prod>
+      </det>
+      <det n="3">
+        <prod>
+          <cProd>RF-001</cProd>
+          <cEAN>SEM GTIN</cEAN>
+          <xProd>ARROBEO TIPO 1 KILOGRAMA</xProd>
+          <NCM>10062000</NCM>
+          <CFOP>5405</CFOP>
+          <uCom>KG</uCom>
+          <qCom>30.0000</qCom>
+          <vUnCom>5.9000</vUnCom>
+          <vProd>177.00</vProd>
+          <cEANTrib>SEM GTIN</cEANTrib>
+          <uTrib>KG</uTrib>
+          <qTrib>30.0000</qTrib>
+          <vUnTrib>5.9000</vUnTrib>
+          <indTot>1</indTot>
+        </prod>
+      </det>
+      <det n="4">
+        <prod>
+          <cProd>FAR-001</cProd>
+          <cEAN>SEM GTIN</cEAN>
+          <xProd>FARINHA DE TRIGO RYZEN 5KG</xProd>
+          <NCM>11010000</NCM>
+          <CFOP>5405</CFOP>
+          <uCom>KG</uCom>
+          <qCom>20.0000</qCom>
+          <vUnCom>4.5000</vUnCom>
+          <vProd>90.00</vProd>
+          <cEANTrib>SEM GTIN</cEANTrib>
+          <uTrib>KG</uTrib>
+          <qTrib>20.0000</qTrib>
+          <vUnTrib>4.5000</vUnTrib>
+          <indTot>1</indTot>
+        </prod>
+      </det>
+      <total>
+        <ICMSTot>
+          <vBC>0.00</vBC>
+          <vICMS>0.00</vICMS>
+          <vICMSDeson>0.00</vICMSDeson>
+          <vFCP>0.00</vFCP>
+          <vBCST>0.00</vBCST>
+          <vST>0.00</vST>
+          <vFCPST>0.00</vFCPST>
+          <vFCPSTRet>0.00</vFCPSTRet>
+          <vProd>607.00</vProd>
+          <vFrete>0.00</vFrete>
+          <vSeg>0.00</vSeg>
+          <vDesc>0.00</vDesc>
+          <vII>0.00</vII>
+          <vIPI>0.00</vIPI>
+          <vIPIDevol>0.00</vIPIDevol>
+          <vPIS>0.00</vPIS>
+          <vCOFINS>0.00</vCOFINS>
+          <vOutro>0.00</vOutro>
+          <vNF>607.00</vNF>
+        </ICMSTot>
+      </total>
+      <transp>
+        <modFrete>0</modFrete>
+      </transp>
+      <pag>
+        <detPag>
+          <tPag>01</tPag>
+          <vPag>607.00</vPag>
+        </detPag>
+      </pag>
+    </infNFe>
+    <infNFeSupl>
+      <qrCode>https://www.sefazvirtual.fazenda.gov.br/QRCode?chave=35200612345678000190550010000000011000000010</qrCode>
+    </infNFeSupl>
+  </NFe>
+  <protNFe>
+    <infProt>
+      <tpAmb>2</tpAmb>
+      <verAplic>TESTE 1.0</verAplic>
+      <chNFe>35200612345678000190550010000000011000000010</chNFe>
+      <dhRecbto>2026-05-25T10:05:00-03:00</dhRecbto>
+      <nProt>135000000000001</nProt>
+      <digVal>AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDDEEEEEEEE=</digVal>
+      <cStat>100</cStat>
+      <xMotivo>Autorizado o uso da NF-e</xMotivo>
+    </infProt>
+  </protNFe>
+</nfeProc>

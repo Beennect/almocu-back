@@ -191,6 +191,68 @@ describe('SupplierService', () => {
     });
   });
 
+  describe('findByCnpj', () => {
+    it('should return a supplier when CNPJ matches', async () => {
+      const supplier = {
+        _id: 'supplier-id',
+        name: 'Distribuidora',
+        cnpj: '12345678000190',
+      };
+      mockSupplierModel.findOne.mockImplementation(() => ({
+        lean: mock(() => ({
+          exec: mock(() => Promise.resolve(supplier)),
+        })),
+      }));
+
+      const result = await service.findByCnpj(
+        '12.345.678/0001-90',
+        'restaurant-id',
+      );
+
+      expect(result).toBe(supplier);
+      expect(mockSupplierModel.findOne).toHaveBeenCalledWith({
+        cnpj: '12345678000190',
+        restaurantId: 'restaurant-id',
+      });
+    });
+
+    it('should strip non-digits from CNPJ before querying', async () => {
+      mockSupplierModel.findOne.mockImplementation(() => ({
+        lean: mock(() => ({
+          exec: mock(() =>
+            Promise.resolve({
+              _id: 'supplier-id',
+              name: 'Distribuidora',
+              cnpj: '12345678000190',
+            }),
+          ),
+        })),
+      }));
+
+      await service.findByCnpj(
+        '12.345.678/0001-90',
+        'restaurant-id',
+      );
+
+      expect(mockSupplierModel.findOne).toHaveBeenCalledWith({
+        cnpj: '12345678000190',
+        restaurantId: 'restaurant-id',
+      });
+    });
+
+    it('should throw NotFoundException when CNPJ does not exist', async () => {
+      mockSupplierModel.findOne.mockImplementation(() => ({
+        lean: mock(() => ({
+          exec: mock(() => Promise.resolve(null)),
+        })),
+      }));
+
+      await expect(
+        service.findByCnpj('00.000.000/0000-00', 'restaurant-id'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
   describe('update', () => {
     const dto = { name: 'Novo Nome' };
     const restaurantId = 'restaurant-id';

@@ -122,6 +122,23 @@ export class SupplierService {
     return updated;
   }
 
+  async findByCnpj(cnpj: string, restaurantId: string): Promise<Supplier> {
+    const cleanCnpj = cnpj.replace(/\D/g, '');
+
+    const supplier = await this.supplierModel
+      .findOne({ cnpj: cleanCnpj, restaurantId })
+      .lean()
+      .exec();
+
+    if (!supplier) {
+      throw new NotFoundException(
+        `Fornecedor com CNPJ ${cnpj} não encontrado neste restaurante.`,
+      );
+    }
+
+    return supplier as unknown as Supplier;
+  }
+
   async remove(id: string, restaurantId: string): Promise<void> {
     const result = await this.supplierModel
       .deleteOne({ _id: id, restaurantId })

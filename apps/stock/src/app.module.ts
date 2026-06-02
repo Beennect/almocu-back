@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { StockModule } from './stock/stock.module';
 import { SupplierModule } from './supplier/supplier.module';
+import { NfeModule } from './nfe/nfe.module';
 import { JwtAuthModule } from '@app/common';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
@@ -27,6 +28,7 @@ import { APP_GUARD } from '@nestjs/core';
     JwtAuthModule,
     StockModule,
     SupplierModule,
+    NfeModule,
   ],
   providers: [
     {
