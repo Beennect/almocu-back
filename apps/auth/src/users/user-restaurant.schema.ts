@@ -1,17 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { UserRole } from '@app/common';
 
 export type UserRestaurantDocument = UserRestaurant & Document;
-
-export enum UserRole {
-  OWNER = 'OWNER',
-  MANAGER = 'MANAGER',
-  WAITER = 'WAITER',
-  KITCHEN = 'KITCHEN',
-  CASHIER = 'CASHIER',
-  DELIVERY = 'DELIVERY',
-  COMMON = 'COMMON',
-}
 
 @Schema({ timestamps: true })
 export class UserRestaurant {

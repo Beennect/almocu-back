@@ -13,6 +13,11 @@ import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
+import { writeFile, existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
+import { promisify } from 'util';
+
+const writeFileAsync = promisify(writeFile);
 
 @Injectable()
 export class ProductService {
@@ -25,8 +30,40 @@ export class ProductService {
     private readonly redisService: RedisService,
   ) {}
 
+  private readonly uploadsDir = join(__dirname, '..', '..', '..', 'uploads', 'products');
+
   private async invalidateCache(restaurantId: string): Promise<void> {
     await this.redisService.incr(`products:cache:version:${restaurantId}`);
+  }
+
+  /**
+   * Decodifica uma imagem base64 e salva no disco.
+   * Retorna a URL pública ou null se não houver imagem.
+   */
+  private async saveBase64Image(base64?: string): Promise<string | null> {
+    if (!base64) return null;
+
+    const matches = base64.match(/^data:image\/(\w+);base64,(.+)$/);
+    if (!matches) {
+      throw new BadRequestException(
+        'Formato inválido. Use data:image/{ext};base64,...',
+      );
+    }
+
+    const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+    const data = matches[2];
+    const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
+    const filepath = join(this.uploadsDir, `${filename}`);
+
+    // Garante que a pasta existe
+    if (!existsSync(this.uploadsDir)) {
+      mkdirSync(this.uploadsDir, { recursive: true });
+    }
+
+    await writeFileAsync(filepath, data, 'base64');
+    this.logger.log(`Imagem salva: ${filepath}`);
+
+    return `/uploads/products/${filename}`;
   }
 
   private async validateStockItem(
@@ -81,9 +118,14 @@ export class ProductService {
       );
     }
 
+    // Extrai imageBase64 e processa a imagem
+    const { imageBase64, ...dto } = createProductDto;
+    const imageUrl = await this.saveBase64Image(imageBase64);
+
     try {
       const newProduct = new this.productModel({
-        ...createProductDto,
+        ...dto,
+        ...(imageUrl ? { imageUrl } : {}),
         restaurantId,
       });
       const saved = await newProduct.save();
@@ -150,8 +192,17 @@ export class ProductService {
     updateProductDto: UpdateProductDto,
     restaurantId: string,
   ) {
+    // Extrai imageBase64 e processa a imagem
+    const { imageBase64, ...dto } = updateProductDto;
+    const imageUrl = await this.saveBase64Image(imageBase64);
+
+    const updateData: Record<string, any> = { ...dto };
+    if (imageUrl) {
+      updateData.imageUrl = imageUrl;
+    }
+
     const updated = await this.productModel
-      .findOneAndUpdate({ _id: id, restaurantId }, updateProductDto, {
+      .findOneAndUpdate({ _id: id, restaurantId }, { $set: updateData }, {
         new: true,
       })
       .lean()

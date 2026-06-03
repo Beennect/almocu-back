@@ -13,8 +13,8 @@ import { RedisService } from '../redis/redis.service';
 import {
   UserRestaurant,
   UserRestaurantDocument,
-  UserRole,
 } from '../users/user-restaurant.schema';
+import { UserRole } from '@app/common';
 import { RegisterDto } from './dto/register.dto';
 
 interface JwtPayload {

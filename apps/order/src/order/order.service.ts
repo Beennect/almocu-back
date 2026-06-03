@@ -105,29 +105,7 @@ export class OrderService {
         };
       });
 
-      // 3. Salva o pedido PRIMEIRO (status pendente)
-      //    Isso garante que, mesmo se o estoque falhar, o pedido existe para reconciliação
-      let order: Order;
-      try {
-        order = await new this.orderModel({
-          items,
-          deliveryAddress: createOrderDto.deliveryAddress,
-          origin: createOrderDto.origin,
-          observations: createOrderDto.observations,
-          userId: new Types.ObjectId(userId),
-          restaurantId: new Types.ObjectId(restaurantId),
-          totalValue,
-        }).save();
-      } catch (saveError: any) {
-        this.logger.error(
-          `Falha ao salvar pedido: ${saveError?.message || saveError}`,
-        );
-        throw new BadRequestException(
-          'Erro ao salvar pedido. Verifique os dados e tente novamente.',
-        );
-      }
-
-      // 4. Ajusta o estoque de TODOS os ingredientes em paralelo
+      // 3. Calcula os ajustes de estoque necessários (ingredientes × quantidade pedida)
       const adjustments: Array<{
         stockProductId: string;
         delta: number;
@@ -145,9 +123,99 @@ export class OrderService {
         }
       }
 
+      // 4. VALIDA o estoque ANTES de criar o pedido
+      if (adjustments.length > 0) {
+        // Agrupa por stockProductId (um ingrediente pode aparecer em vários produtos)
+        const neededMap = new Map<string, { needed: number; name: string }>();
+        for (const adj of adjustments) {
+          const current = neededMap.get(adj.stockProductId) || {
+            needed: 0,
+            name: adj.stockProductId, // será substituído pelo nome real vindo do estoque
+          };
+          current.needed += Math.abs(adj.delta);
+          neededMap.set(adj.stockProductId, current);
+        }
+
+        // Busca TODOS os itens de estoque em uma única chamada via endpoint interno
+        const stockIds = Array.from(neededMap.keys());
+        let stockItems: any[] = [];
+        try {
+          const resp = await firstValueFrom(
+            this.httpService
+              .post(
+                `${stockServiceUrl}/internal/stock/batch`,
+                { ids: stockIds },
+                {
+                  headers: {
+                    'x-internal-key': internalKey,
+                    'x-tenant-id': restaurantId,
+                  },
+                },
+              )
+              .pipe(timeout(10000)),
+          );
+          stockItems = resp.data;
+        } catch {
+          throw new BadRequestException(
+            'Não foi possível consultar o estoque. Tente novamente.',
+          );
+        }
+
+        // Monta mapa de disponibilidade
+        const availableMap = new Map<string, any>();
+        for (const item of stockItems) {
+          availableMap.set(item._id.toString(), item);
+        }
+
+        // Verifica cada ingrediente
+        const insufficient: string[] = [];
+        for (const [stockId, info] of neededMap) {
+          const stockItem = availableMap.get(stockId);
+          if (!stockItem) {
+            insufficient.push(`${info.name}: item não encontrado no estoque`);
+            continue;
+          }
+          const available = stockItem.quantity ?? 0;
+          if (available < info.needed) {
+            insufficient.push(
+              `${stockItem.name || info.name}`,
+            );
+          }
+        }
+
+        if (insufficient.length > 0) {
+          throw new BadRequestException(
+            `Estoque insuficiente: ${insufficient.join('; ')}`,
+          );
+        }
+      }
+
+      // 5. Cria o pedido (estoque já validado)
+      let order: Order;
+      try {
+        order = await new this.orderModel({
+          items,
+          deliveryAddress: createOrderDto.deliveryAddress,
+          clientName: createOrderDto.clientName,
+          origin: createOrderDto.origin,
+          observations: createOrderDto.observations,
+          userId: new Types.ObjectId(userId),
+          restaurantId: new Types.ObjectId(restaurantId),
+          totalValue,
+          statusHistory: [{ status: 'pendente', timestamp: new Date() }],
+        }).save();
+      } catch (saveError: any) {
+        this.logger.error(
+          `Falha ao salvar pedido: ${saveError?.message || saveError}`,
+        );
+        throw new BadRequestException(
+          'Erro ao salvar pedido. Verifique os dados e tente novamente.',
+        );
+      }
+
+      // 6. Deduz o estoque (com operação atômica que impede quantidade negativa)
       if (adjustments.length > 0) {
         try {
-          // Processa TODOS os ajustes em paralelo
           await Promise.all(
             adjustments.map((adj) =>
               firstValueFrom(
@@ -169,9 +237,10 @@ export class OrderService {
             ),
           );
         } catch (stockError: unknown) {
-          // Rollback paralelo de todos os ajustes
+          // Rollback: como o estoque já foi validado antes, isso só ocorre
+          // se houve concorrência (dois pedidos simultâneos).
           this.logger.error(
-            `Falha no ajuste de estoque para o pedido ${(order as any)._id}. Iniciando rollback...`,
+            `Falha na dedução de estoque do pedido ${(order as any)._id}. Rollback...`,
           );
 
           await Promise.allSettled(
@@ -197,7 +266,8 @@ export class OrderService {
 
           const message =
             (stockError as any)?.response?.data?.message ||
-            'Falha ao ajustar estoque para um ingrediente';
+            'Falha ao ajustar estoque. O pedido foi criado mas o estoque não pôde ser deduzido. Contate o administrador.';
+          // O pedido já foi criado — lançamos o erro para o front-end tratar
           throw new BadRequestException(message);
         }
       }
@@ -368,6 +438,7 @@ export class OrderService {
     }
 
     order.status = status;
+    order.statusHistory.push({ status, timestamp: new Date() });
     return order.save();
   }
 

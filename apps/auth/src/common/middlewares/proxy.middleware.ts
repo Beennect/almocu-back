@@ -4,6 +4,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../../auth/auth.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { UserRole } from '@app/common';
 
 @Injectable()
 export class ProxyMiddleware implements NestMiddleware {
@@ -102,7 +103,7 @@ export class ProxyMiddleware implements NestMiddleware {
             try {
               if (payload.globalRoles?.includes('admin')) {
                 restaurantId = finalTargetId;
-                role = 'OWNER'; // Admin age como OWNER
+                role = UserRole.OWNER; // Admin age como OWNER
               } else if (finalTargetId !== payload.restaurantId) {
                 const link =
                   await this.authService.validateUserRestaurantAccess(

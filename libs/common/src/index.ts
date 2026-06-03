@@ -5,3 +5,6 @@ export { JwtStrategy } from './strategies/jwt.strategy';
 export { RedisService } from './redis/redis.service';
 export * from './interfaces';
 export * from './decorators';
+export * from './validators';
+export { UserRole } from './enums/user-role.enum';
+export { ROLE_HIERARCHY, getRoleRank } from './constants/role-hierarchy';

@@ -70,7 +70,12 @@ export class CreateOrderDto {
   @Type(() => DeliveryAddressDto)
   deliveryAddress?: DeliveryAddressDto;
 
-  @ApiProperty({ example: 'App', required: false })
+  @ApiProperty({ example: 'João', required: false })
+  @IsOptional()
+  @IsString()
+  clientName?: string;
+
+  @ApiProperty({ example: 'Mesa 5', required: false })
   @IsOptional()
   @IsString()
   origin?: string;

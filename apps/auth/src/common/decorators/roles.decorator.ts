@@ -1,5 +1,7 @@
-import { SetMetadata } from '@nestjs/common';
-import { UserRole } from '../../users/user-restaurant.schema';
-
-export const ROLES_KEY = 'roles';
-export const Roles = (...roles: UserRole[]) => SetMetadata(ROLES_KEY, roles);
+/**
+ * Decorator de cargos com suporte a hierarquia.
+ *
+ * Re-exporta o decorator Roles unificado de @app/common.
+ * Mantido aqui para compatibilidade com o módulo do auth-app.
+ */
+export { Roles, ROLES_KEY } from '@app/common';

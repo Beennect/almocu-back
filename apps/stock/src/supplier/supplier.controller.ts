@@ -7,7 +7,10 @@ import {
   Param,
   Delete,
   UseGuards,
+  Req,
+  NotFoundException,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { SupplierService } from './supplier.service';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
@@ -20,6 +23,7 @@ import {
   ApiBearerAuth,
   ApiHeader,
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
 } from '@nestjs/swagger';
 
 import {
@@ -52,8 +56,10 @@ export class SupplierController {
   create(
     @Body() createSupplierDto: CreateSupplierDto,
     @RestaurantId() restaurantId: string,
+    @Req() req: Request,
   ) {
-    return this.supplierService.create(createSupplierDto, restaurantId);
+    const userId = (req.user as { id: string }).id;
+    return this.supplierService.create(createSupplierDto, restaurantId, userId);
   }
 
   @Get()
@@ -86,10 +92,28 @@ export class SupplierController {
     return this.supplierService.findAll(restaurantId, pageable);
   }
 
+  @Get('cnpj/:cnpj')
+  @ApiOperation({ summary: 'Busca dados de CNPJ na BrasilAPI' })
+  @ApiNotFoundResponse({
+    description: 'CNPJ não encontrado na BrasilAPI',
+  })
+  async lookupCnpj(@Param('cnpj') cnpj: string) {
+    const result = await this.supplierService.lookupCnpj(cnpj);
+    if (!result) {
+      throw new NotFoundException(
+        'CNPJ não encontrado ou inválido na BrasilAPI.',
+      );
+    }
+    return result;
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Busca um fornecedor específico' })
   @ApiForbiddenResponse({
     description: 'Apenas proprietários e gerentes',
+  })
+  @ApiNotFoundResponse({
+    description: 'Fornecedor não encontrado',
   })
   findOne(@Param('id') id: string, @RestaurantId() restaurantId: string) {
     return this.supplierService.findOne(id, restaurantId);
@@ -117,3 +141,5 @@ export class SupplierController {
     return this.supplierService.remove(id, restaurantId);
   }
 }
+
+

@@ -45,6 +45,28 @@ export class DeliveryAddress {
 
 const DeliveryAddressSchema = SchemaFactory.createForClass(DeliveryAddress);
 
+@Schema({ _id: false })
+export class StatusHistoryEntry {
+  @Prop({
+    required: true,
+    enum: [
+      'pendente',
+      'em_preparo',
+      'pronto',
+      'saiu_para_entrega',
+      'entregue',
+      'cancelado',
+    ],
+  })
+  status!: string;
+
+  @Prop({ required: true })
+  timestamp!: Date;
+}
+
+const StatusHistoryEntrySchema =
+  SchemaFactory.createForClass(StatusHistoryEntry);
+
 @Schema({ timestamps: true })
 export class Order extends Document {
   @Prop({ type: Types.ObjectId, required: true, index: true })
@@ -88,6 +110,9 @@ export class Order extends Document {
   @Prop({ type: DeliveryAddressSchema })
   deliveryAddress?: DeliveryAddress;
 
+  @Prop({ maxlength: 100 })
+  clientName?: string;
+
   @Prop({ maxlength: 50 })
   origin: string;
 
@@ -102,7 +127,12 @@ export class Order extends Document {
 
   @Prop()
   stripeSessionId: string;
+
+  @Prop({ type: [StatusHistoryEntrySchema], default: [] })
+  statusHistory!: StatusHistoryEntry[];
 }
+
+export { StatusHistoryEntrySchema };
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
 

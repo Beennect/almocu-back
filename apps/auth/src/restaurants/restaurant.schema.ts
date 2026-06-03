@@ -4,6 +4,22 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export type RestaurantDocument = Restaurant & Document;
 
+/** Planos disponíveis para restaurantes */
+export enum Plan {
+  BASIC = 'BASIC',
+  PROFESSIONAL = 'PROFESSIONAL',
+  NETWORK = 'NETWORK',
+  PREMIUM = 'PREMIUM',
+}
+
+/** Limite de filiais por plano — fonte única da verdade */
+export const PLAN_LIMITS: Record<Plan, number> = {
+  [Plan.BASIC]: 3,
+  [Plan.PROFESSIONAL]: 6,
+  [Plan.NETWORK]: 10,
+  [Plan.PREMIUM]: 999, // Ilimitado na prática
+};
+
 @Schema({ timestamps: true })
 export class Restaurant {
   @ApiProperty({
@@ -30,17 +46,22 @@ export class Restaurant {
 
   @ApiProperty({
     example: 'BASIC',
-    enum: ['BASIC', 'PROFESSIONAL', 'NETWORK', 'PREMIUM'],
+    enum: Plan,
   })
   @Prop({
-    enum: ['BASIC', 'PROFESSIONAL', 'NETWORK', 'PREMIUM'],
-    default: 'BASIC',
+    type: String,
+    enum: Plan,
+    default: Plan.BASIC,
   })
-  plan: string;
+  plan: Plan;
 
-  @ApiProperty({ example: 1, description: 'Quantidade máxima de filiais' })
-  @Prop({ default: 1 })
+  @ApiProperty({ example: 3, description: 'Quantidade máxima de filiais' })
+  @Prop({ default: PLAN_LIMITS[Plan.BASIC] })
   maxBranches: number;
+
+  /** Contador atômico de filiais — usado para evitar TOCTOU em createBranch() */
+  @Prop({ default: 0 })
+  branchCount: number;
 
   @ApiProperty({
     description: 'ID do restaurante pai (matriz)',

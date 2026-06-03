@@ -12,6 +12,9 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Aumenta o limite do body parser para aceitar base64 de imagens (~10MB)
+  app.useBodyParser('json', { limit: '10mb' });
+
   // Cria a pasta de uploads se não existir
   const uploadsDir = join(__dirname, '..', '..', '..', 'uploads', 'products');
   if (!existsSync(uploadsDir)) {

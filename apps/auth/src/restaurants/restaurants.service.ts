@@ -5,24 +5,32 @@ import {
   NotFoundException,
   UnauthorizedException,
   BadRequestException,
+  InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import type { Pageable } from '@app/common';
-import { Restaurant, RestaurantDocument } from './restaurant.schema';
+import {
+  Restaurant,
+  RestaurantDocument,
+  Plan,
+  PLAN_LIMITS,
+} from './restaurant.schema';
 import {
   UserRestaurant,
   UserRestaurantDocument,
-  UserRole,
 } from '../users/user-restaurant.schema';
+import { UserRole } from '@app/common';
 import { RedisService } from '../redis/redis.service';
 import {
   generateTotpSecret,
   generateTotpCode,
   verifyTotpCode,
+  getTotpWindow,
   secondsUntilNextWindow,
 } from './totp.util';
+
 
 @Injectable()
 export class RestaurantsService {
@@ -40,12 +48,27 @@ export class RestaurantsService {
     name: string,
     cnpj: string,
     ownerId: string,
-    maxBranches: number = 1,
+    plan: Plan = Plan.BASIC,
   ): Promise<RestaurantDocument> {
-    const existing = await this.restaurantModel.findOne({ name }).exec();
-    if (existing) {
+    const existingByName = await this.restaurantModel.findOne({ name }).exec();
+    if (existingByName) {
       throw new ConflictException(
         `Já existe um restaurante com o nome "${name}".`,
+      );
+    }
+
+    const existingByCnpj = await this.restaurantModel.findOne({ cnpj }).exec();
+    if (existingByCnpj) {
+      throw new ConflictException(
+        `Já existe um restaurante com o CNPJ "${cnpj}".`,
+      );
+    }
+
+    const upperPlan = (plan ?? Plan.BASIC).toUpperCase() as Plan;
+    const maxBranches = PLAN_LIMITS[upperPlan];
+    if (maxBranches === undefined) {
+      throw new BadRequestException(
+        `Plano inválido: "${plan}". Use BASIC, PROFESSIONAL, NETWORK ou PREMIUM.`,
       );
     }
 
@@ -55,8 +78,8 @@ export class RestaurantsService {
       name,
       cnpj,
       totpSecret,
-      plan: 'BASIC',
-      maxBranches: maxBranches || 1,
+      plan: upperPlan,
+      maxBranches,
     });
     const savedRestaurant = await restaurant.save();
 
@@ -94,20 +117,43 @@ export class RestaurantsService {
       throw new ConflictException('Apenas o proprietário pode criar filiais');
     }
 
-    // Verificar limite de filiais
-    const branchCount = await this.restaurantModel
-      .countDocuments({ parentId: parent._id })
+    // ⚡ Verificação atômica de limite via findOneAndUpdate + $inc
+    // Evita TOCTOU: countDocuments (check) + save (act) agora são atômicos.
+    const parentWithSlot = await this.restaurantModel
+      .findOneAndUpdate(
+        {
+          _id: parent._id,
+          $expr: { $lt: ['$branchCount', '$maxBranches'] },
+        },
+        { $inc: { branchCount: 1 } },
+        { new: true },
+      )
       .exec();
-    if (branchCount >= parent.maxBranches) {
+
+    if (!parentWithSlot) {
+      // Pode ser que o restaurante tenha sido excluído ou o limite foi atingido
+      const stillExists = await this.restaurantModel.exists({ _id: parent._id });
+      if (!stillExists) {
+        throw new NotFoundException('Restaurante principal não encontrado');
+      }
       throw new ConflictException(
         `Limite de filiais atingido para o plano ${parent.plan}`,
       );
     }
 
+    // Verificar duplicidade de nome (ainda há pequena janela TOCTOU — mitigada
+    // pelo índice único composto abaixo e captura de erro E11000)
     const branchExists = await this.restaurantModel
       .findOne({ name, parentId: parent._id })
       .exec();
     if (branchExists) {
+      // Devolver o slot reservado
+      await this.restaurantModel
+        .updateOne(
+          { _id: parent._id, branchCount: { $gt: 0 } },
+          { $inc: { branchCount: -1 } },
+        )
+        .exec();
       throw new ConflictException(
         `Já existe uma filial com o nome "${name}" neste restaurante.`,
       );
@@ -122,7 +168,27 @@ export class RestaurantsService {
       plan: parent.plan,
       maxBranches: parent.maxBranches,
     });
-    const savedBranch = await branch.save();
+
+    let savedBranch: RestaurantDocument;
+    try {
+      savedBranch = await branch.save();
+    } catch (err: any) {
+      // Devolver o slot reservado se o save falhar
+      await this.restaurantModel
+        .updateOne(
+          { _id: parent._id, branchCount: { $gt: 0 } },
+          { $inc: { branchCount: -1 } },
+        )
+        .exec();
+
+      // Se for erro de duplicidade (E11000), relançar como Conflict
+      if (err?.code === 11000) {
+        throw new ConflictException(
+          `Já existe uma filial com o nome "${name}" neste restaurante.`,
+        );
+      }
+      throw err;
+    }
 
     // Vincular o proprietário também à filial
     await this.userRestaurantModel.create({
@@ -138,6 +204,10 @@ export class RestaurantsService {
   /**
    * Retorna o código TOTP atual do restaurante e o tempo restante na janela.
    * Valida se o usuário tem permissão (OWNER/MANAGER) no restaurante.
+   *
+   * Também armazena um cache em Redis (TTL = 7500s) para que
+   * `joinWithInviteCode()` possa fazer lookup O(1) sem escanear
+   * todos os restaurantes.
    */
   async getCurrentInviteCode(
     restaurantId: string,
@@ -169,6 +239,12 @@ export class RestaurantsService {
     const code = generateTotpCode(restaurant.totpSecret);
     const expiresInSeconds = secondsUntilNextWindow();
 
+    // Cachear o código em Redis para lookup O(1) no join
+    // TTL = 7500s cobre 2 janelas (7200s) + margem de segurança
+    const window = getTotpWindow();
+    const cacheKey = `totp:code:${code}:window:${window}`;
+    await this.redisService.set(cacheKey, restaurantId, 7500);
+
     return { code, expiresInSeconds };
   }
 
@@ -176,30 +252,62 @@ export class RestaurantsService {
    * Entrada via código TOTP com verificação de unicidade por janela.
    *
    * Fluxo:
-   *  1. Busca todos os restaurantes e verifica qual deles gera o código informado
-   *     (janela atual ou anterior — tolerância de 2 horas).
-   *  2. Garante via Redis que o código não foi usado por outro restaurante
+   *  1. Tenta lookup O(1) via Redis cache (populado por getCurrentInviteCode()).
+   *  2. Se não encontrar no cache, faz streaming cursor sobre restaurantes
+   *     (evita carregar todos os totpSecret em memória).
+   *  3. Garante via Redis que o código não foi usado por outro restaurante
    *     no mesmo período (anti-colisão e anti-replay).
-   *  3. Vincula o usuário ao restaurante encontrado.
+   *  4. Vincula o usuário ao restaurante encontrado.
    */
   async joinWithInviteCode(
     inviteCode: string,
     userId: string,
   ): Promise<UserRestaurantDocument> {
-    const restaurants = await this.restaurantModel
-      .find()
-      .select('+totpSecret')
-      .exec();
+    const normalizedCode = inviteCode.toUpperCase();
 
+    // ── 1. Tentativa rápida via Redis cache (O(1)) ──
     let matchedRestaurant: RestaurantDocument | null = null;
     let matchedWindow: number | null = null;
 
-    for (const restaurant of restaurants) {
-      const window = verifyTotpCode(inviteCode, restaurant.totpSecret);
-      if (window !== null) {
-        matchedRestaurant = restaurant;
-        matchedWindow = window;
-        break;
+    // Verificar janela atual e anterior
+    for (const windowOffset of [0, -1]) {
+      const window = getTotpWindow(windowOffset);
+      const cacheKey = `totp:code:${normalizedCode}:window:${window}`;
+      const cachedRestaurantId = await this.redisService.get(cacheKey);
+
+      if (cachedRestaurantId) {
+        // Cache hit — buscar documento diretamente
+        const restaurant = await this.restaurantModel
+          .findById(cachedRestaurantId)
+          .select('+totpSecret')
+          .exec();
+
+        if (restaurant) {
+          // Verificar se o código realmente corresponde (validação dupla)
+          const validWindow = verifyTotpCode(normalizedCode, restaurant.totpSecret);
+          if (validWindow !== null) {
+            matchedRestaurant = restaurant;
+            matchedWindow = validWindow;
+            break;
+          }
+        }
+      }
+    }
+
+    // ── 2. Fallback: streaming cursor (memória O(1) em vez de O(N)) ──
+    if (!matchedRestaurant) {
+      const cursor = this.restaurantModel
+        .find()
+        .select('+totpSecret')
+        .cursor();
+
+      for await (const restaurant of cursor) {
+        const window = verifyTotpCode(normalizedCode, restaurant.totpSecret);
+        if (window !== null) {
+          matchedRestaurant = restaurant;
+          matchedWindow = window;
+          break;
+        }
       }
     }
 
@@ -207,32 +315,29 @@ export class RestaurantsService {
       throw new UnauthorizedException('Código de convite inválido ou expirado');
     }
 
-    // Chave Redis para garantir unicidade: mesmo código na mesma janela
-    // não pode ser associado a mais de um restaurante simultaneamente.
-    const redisKey = `totp:window:${matchedWindow}:code:${inviteCode}`;
-    const existingRestaurantId = await this.redisService.get(redisKey);
+    // ── 3. Anti-colisão: mesmo código na mesma janela não pode ser
+    //       reivindicado por dois restaurantes diferentes ──
+    const antiCollisionKey = `totp:window:${matchedWindow}:code:${normalizedCode}`;
+    const existingRestaurantId = await this.redisService.get(antiCollisionKey);
 
     if (
       existingRestaurantId &&
       existingRestaurantId !== matchedRestaurant._id.toString()
     ) {
-      // Colisão: outro restaurante reivindica este código nesta janela
       throw new ConflictException(
         'Código de convite em conflito com outro restaurante neste momento. Aguarde o próximo código.',
       );
     }
 
-    // Registra o vínculo código→restaurante para a janela atual (TTL = 7500s)
-    // cobre a janela atual (3600s) + janela anterior (3600s) + margem de segurança
     if (!existingRestaurantId) {
       await this.redisService.set(
-        redisKey,
+        antiCollisionKey,
         matchedRestaurant._id.toString(),
         7500,
       );
     }
 
-    // Verifica se já existe vínculo do usuário com este restaurante
+    // ── 4. Verificar vínculo duplicado ──
     const existing = await this.userRestaurantModel
       .findOne({
         userId: new Types.ObjectId(userId),
@@ -399,28 +504,30 @@ export class RestaurantsService {
       `Suspend: idsToSuspend = ${idsToSuspend.map((id) => id.toString()).join(', ')}`,
     );
 
-    // Suspende restaurantes (findOneAndUpdate garante execução real)
-    for (const id of idsToSuspend) {
-      const result = await this.restaurantModel
-        .findOneAndUpdate(
-          { _id: id },
-          { $set: { status: 'suspended' } },
-          { new: true },
+    // ⚡ Suspende restaurantes em lote único (updateMany)
+    // Antes: N queries individuais (findOneAndUpdate). Agora: 1 query.
+    const suspendResult = await this.restaurantModel
+      .updateMany(
+        { _id: { $in: idsToSuspend } },
+        { $set: { status: 'suspended' } },
+      )
+      .exec();
+
+    if (suspendResult.matchedCount !== idsToSuspend.length) {
+      this.logger.warn(
+        `Suspend: esperava ${idsToSuspend.length} restaurante(s), encontrou ${suspendResult.matchedCount}`,
+      );
+    }
+
+    // Se for matriz, decrementar branchCount do pai (as filiais não têm pai próprio)
+    // As filiais ao serem suspensas liberam slots no plano
+    if (!restaurant.parentId && idsToSuspend.length > 1) {
+      await this.restaurantModel
+        .updateOne(
+          { _id: restaurant._id, branchCount: { $gt: 0 } },
+          { $inc: { branchCount: -(idsToSuspend.length - 1) } },
         )
         .exec();
-
-      if (!result) {
-        this.logger.error(
-          `Suspend: restaurante ${id.toString()} não encontrado para atualização`,
-        );
-        throw new NotFoundException(
-          `Restaurante com ID ${id.toString()} não encontrado durante suspensão`,
-        );
-      }
-
-      this.logger.debug(
-        `Suspend: restaurante ${id.toString()} → status="${result.status}"`,
-      );
     }
 
     // Desativa vínculos de usuários
@@ -493,26 +600,34 @@ export class RestaurantsService {
       idsToReactivate.push(...branches.map((b) => b._id as Types.ObjectId));
     }
 
-    // Reativa restaurantes (findOneAndUpdate garante execução real)
-    // Gera um TOTP secret ÚNICO para cada restaurante (campo unique: true no schema)
-    for (const id of idsToReactivate) {
-      const newTotpSecret = generateTotpSecret();
-      const result = await this.restaurantModel
-        .findOneAndUpdate(
-          { _id: id },
-          { $set: { status: 'active', totpSecret: newTotpSecret } },
-          { new: true },
-        )
-        .exec();
+    // ⚡ Reativa restaurantes em lote (bulkWrite)
+    // Cada restaurante precisa de um totpSecret único, por isso não usamos
+    // updateMany. bulkWrite envia todas as operações em 1 única chamada.
+    const reactivateOps = idsToReactivate.map((id) => ({
+      updateOne: {
+        filter: { _id: id },
+        update: {
+          $set: {
+            status: 'active',
+            totpSecret: generateTotpSecret(),
+          },
+        },
+      },
+    }));
 
-      if (!result) {
-        this.logger.error(
-          `Reactivate: restaurante ${id.toString()} não encontrado para atualização`,
-        );
-        throw new NotFoundException(
-          `Restaurante com ID ${id.toString()} não encontrado durante reativação`,
-        );
-      }
+    const bulkResult = await this.restaurantModel.bulkWrite(reactivateOps, {
+      ordered: false,
+    });
+
+    if (bulkResult.hasWriteErrors()) {
+      const writeErrors = bulkResult.getWriteErrors();
+      this.logger.error(
+        `Reactivate: ${writeErrors.length} falha(s)`,
+        writeErrors,
+      );
+      throw new InternalServerErrorException(
+        `Falha ao reativar ${writeErrors.length} filial(is). Tente novamente.`,
+      );
     }
 
     // Reativa vínculos de usuários

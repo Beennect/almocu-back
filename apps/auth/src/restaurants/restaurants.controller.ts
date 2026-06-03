@@ -17,21 +17,23 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiQuery,
+  ApiForbiddenResponse,
 } from '@nestjs/swagger';
 import { RestaurantsService } from './restaurants.service';
 import {
   CreateRestaurantDto,
   CreateBranchDto,
 } from './dto/create-restaurant.dto';
+import { Plan } from './restaurant.schema';
 import { JoinRestaurantDto } from './dto/join-restaurant.dto';
-import { UserRole } from '../users/user-restaurant.schema';
+import { UserRole, RolesGuard, Roles } from '@app/common';
 import type { Request } from 'express';
 import { PageableParams } from '@app/common';
 import type { Pageable } from '@app/common';
 
 @ApiTags('Restaurants')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('restaurants')
 export class RestaurantsController {
   constructor(private readonly restaurantsService: RestaurantsService) {}
@@ -44,7 +46,7 @@ export class RestaurantsController {
       createDto.name,
       createDto.cnpj,
       req.user!.id,
-      createDto.maxBranches,
+      createDto.plan ?? Plan.BASIC,
     );
   }
 
@@ -52,6 +54,8 @@ export class RestaurantsController {
     summary: 'Cria uma nova filial vinculada a um restaurante master',
   })
   @ApiBody({ type: CreateBranchDto })
+  @Roles(UserRole.OWNER)
+  @ApiForbiddenResponse({ description: 'Apenas OWNER pode criar filiais' })
   @Post('branch')
   async createBranch(@Req() req: Request, @Body() createDto: CreateBranchDto) {
     return this.restaurantsService.createBranch(
@@ -77,6 +81,8 @@ export class RestaurantsController {
     summary:
       'Retorna o código TOTP atual do restaurante e o tempo restante (segundos)',
   })
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
+  @ApiForbiddenResponse({ description: 'Apenas OWNER e MANAGER' })
   @Get(':id/invite-code')
   async getInviteCode(@Param('id') restaurantId: string, @Req() req: Request) {
     return this.restaurantsService.getCurrentInviteCode(
@@ -94,6 +100,8 @@ export class RestaurantsController {
   }
 
   @ApiOperation({ summary: 'Lista os funcionários do restaurante atual' })
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
+  @ApiForbiddenResponse({ description: 'Apenas OWNER e MANAGER' })
   @ApiQuery({
     name: 'page',
     required: false,
@@ -122,6 +130,8 @@ export class RestaurantsController {
   }
 
   @ApiOperation({ summary: 'Altera o cargo de um funcionário' })
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
+  @ApiForbiddenResponse({ description: 'Apenas OWNER e MANAGER' })
   @ApiBody({
     schema: {
       properties: { role: { type: 'string', enum: Object.values(UserRole) } },
@@ -143,6 +153,8 @@ export class RestaurantsController {
   }
 
   @ApiOperation({ summary: 'Remove um funcionário da equipe' })
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
+  @ApiForbiddenResponse({ description: 'Apenas OWNER e MANAGER' })
   @Delete(':id/staff/:userId')
   async removeStaff(
     @Param('id') restaurantId: string,
@@ -161,6 +173,8 @@ export class RestaurantsController {
     description:
       'Apenas o proprietário pode suspender. Se for matriz, suspende também as filiais. Desativa todos os vínculos de usuários.',
   })
+  @Roles(UserRole.OWNER)
+  @ApiForbiddenResponse({ description: 'Apenas OWNER' })
   @Delete(':id')
   @HttpCode(200)
   async suspend(
@@ -175,6 +189,8 @@ export class RestaurantsController {
     description:
       'Regenera a chave TOTP por segurança. Reativa os vínculos de usuários.',
   })
+  @Roles(UserRole.OWNER)
+  @ApiForbiddenResponse({ description: 'Apenas OWNER' })
   @Patch(':id/reactivate')
   async reactivate(
     @Param('id') restaurantId: string,

@@ -1,13 +1,18 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsBoolean,
+  IsEmail,
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
+  MinLength,
+  Validate,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { CnpjValidator } from '@app/common';
 
 class AddressDto {
   @ApiProperty({ example: 'Rua das Flores' })
@@ -33,6 +38,7 @@ class AddressDto {
   @ApiProperty({ example: 'SP', maxLength: 2 })
   @IsString()
   @IsNotEmpty()
+  @MinLength(2)
   @MaxLength(2)
   state!: string;
 
@@ -65,13 +71,15 @@ export class CreateSupplierDto {
 
   @ApiProperty({ example: 'contato@distribuidora.com', required: false })
   @IsOptional()
-  @IsString()
+  @IsEmail()
   email?: string;
 
-  @ApiProperty({ example: '12.345.678/0001-90', required: false })
-  @IsOptional()
+  @ApiProperty({ example: '12.345.678/0001-90' })
   @IsString()
-  cnpj?: string;
+  @IsNotEmpty({ message: 'CNPJ é obrigatório' })
+  @Matches(/^\d{14}$/, { message: 'CNPJ deve conter exatamente 14 dígitos' })
+  @Validate(CnpjValidator)
+  cnpj!: string;
 
   @ApiProperty({ required: false, type: AddressDto })
   @IsOptional()

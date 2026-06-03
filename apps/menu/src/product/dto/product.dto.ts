@@ -1,6 +1,7 @@
 import { ApiProperty, PartialType } from '@nestjs/swagger';
 import {
   IsArray,
+  IsBase64,
   IsMongoId,
   IsNotEmpty,
   IsNumber,
@@ -62,6 +63,16 @@ export class CreateProductDto {
   @IsUrl({ protocols: ['https'], require_protocol: true })
   @MaxLength(2048)
   imageUrl?: string;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Imagem codificada em Base64 (data:image/...;base64,...). Se informada, sobrescreve imageUrl.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10 * 1024 * 1024) // ~10MB
+  imageBase64?: string;
 
   @ApiProperty({
     type: [IngredientDto],

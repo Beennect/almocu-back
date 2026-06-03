@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import { UserRole } from '../enums/user-role.enum';
+import { getRoleRank } from '../constants/role-hierarchy';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -15,12 +17,12 @@ export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<string[]>(
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
       ROLES_KEY,
       [context.getHandler(), context.getClass()],
     );
 
-    if (!requiredRoles) {
+    if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }
 
@@ -28,24 +30,29 @@ export class RolesGuard implements CanActivate {
     const { user } = request;
 
     if (!user) {
-      throw new ForbiddenException('User not authenticated');
+      throw new ForbiddenException('Usuário não autenticado');
     }
 
-    // Admin global roles bypass
+    // Admin global roles bypass (OWNER total)
     if (user.globalRoles?.includes('admin')) {
       return true;
     }
 
     if (!user.role) {
       throw new ForbiddenException(
-        'User has no role defined for this restaurant context',
+        'Usuário não possui cargo definido para este restaurante',
       );
     }
 
-    const hasRole = requiredRoles.includes(user.role);
-    if (!hasRole) {
+    // Hierarquia: calcula o rank mínimo necessário entre os roles exigidos
+    const userRank = getRoleRank(user.role);
+    const minimumRank = Math.min(
+      ...requiredRoles.map((r) => getRoleRank(r)),
+    );
+
+    if (userRank < minimumRank || userRank === 0) {
       throw new ForbiddenException(
-        `Access denied: requires role ${requiredRoles.join(' or ')}`,
+        `Acesso negado: necessário cargo ${requiredRoles.join(' ou ')}`,
       );
     }
 

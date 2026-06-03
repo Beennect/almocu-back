@@ -4,9 +4,11 @@ import {
   IsString,
   Matches,
   IsOptional,
+  IsEnum,
   Validate,
 } from 'class-validator';
 import { CnpjValidator } from '../validators/cnpj.validator';
+import { Plan } from '../restaurant.schema';
 
 export class CreateRestaurantDto {
   @ApiProperty({ example: 'Almoco do Chef' })
@@ -24,12 +26,18 @@ export class CreateRestaurantDto {
   cnpj: string;
 
   @ApiProperty({
-    example: 3,
-    description: 'Quantidade máxima de locais (filiais) permitidas',
-    default: 1,
+    example: 'BASIC',
+    enum: Plan,
+    default: Plan.BASIC,
+    description:
+      'Plano contratado (define o limite máximo de filiais). BASIC=3, PROFESSIONAL=6, NETWORK=10, PREMIUM=ilimitado',
   })
   @IsOptional()
-  maxBranches?: number;
+  @IsEnum(Plan, {
+    message:
+      'Plano inválido. Valores aceitos: BASIC, PROFESSIONAL, NETWORK, PREMIUM',
+  })
+  plan?: Plan;
 }
 
 export class CreateBranchDto {

@@ -7,6 +7,9 @@ import { ConfigService } from '@nestjs/config';
 import { getModelToken } from '@nestjs/mongoose';
 import { Stock } from './stock/stock.schema';
 import { Pageable } from '@app/common';
+import { of, throwError } from 'rxjs';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { AxiosError } from 'axios';
 
 describe('StockService', () => {
   let service: StockService;
@@ -28,6 +31,9 @@ describe('StockService', () => {
         exec: mock(() => Promise.resolve(null)),
       })),
     })),
+    findOneAndDelete: mock(() => ({
+      exec: mock(() => Promise.resolve(null)),
+    })),
     create: mock(() => {}),
     findOneAndUpdate: mock(() => {}),
     exec: mock(() => {}),
@@ -37,16 +43,16 @@ describe('StockService', () => {
   };
 
   const mockSupplierService = {
-    findOne: mock(() => Promise.resolve({ _id: 'supplier-id', name: 'Distribuidora' })),
+    findOne: mock(() =>
+      Promise.resolve({ _id: 'supplier-id', name: 'Distribuidora' }),
+    ),
   };
 
   const mockHttpService = {
-    axiosRef: {
-      delete: mock(() => Promise.resolve({ data: { message: 'ok' } })),
-      post: mock(() => Promise.resolve({ data: {} })),
-      get: mock(() => Promise.resolve({ data: {} })),
-      patch: mock(() => Promise.resolve({ data: {} })),
-    },
+    delete: mock(() => of({ data: { message: 'ok' }, status: 204 })),
+    post: mock(() => of({ data: {} })),
+    get: mock(() => of({ data: {} })),
+    patch: mock(() => of({ data: {} })),
   };
 
   const mockConfigService = {
@@ -81,14 +87,15 @@ describe('StockService', () => {
 
     mockStockModel.find.mockClear();
     mockStockModel.findOne.mockClear();
+    mockStockModel.findOneAndDelete.mockClear();
     mockStockModel.create.mockClear();
     mockStockModel.findOneAndUpdate.mockClear();
     mockStockModel.countDocuments.mockClear();
     mockSupplierService.findOne.mockClear();
-    mockHttpService.axiosRef.delete.mockClear();
-    mockHttpService.axiosRef.post.mockClear();
-    mockHttpService.axiosRef.get.mockClear();
-    mockHttpService.axiosRef.patch.mockClear();
+    mockHttpService.delete.mockClear();
+    mockHttpService.post.mockClear();
+    mockHttpService.get.mockClear();
+    mockHttpService.patch.mockClear();
     mockConfigService.get.mockClear();
     mockConfigService.getOrThrow.mockClear();
   });
@@ -126,6 +133,108 @@ describe('StockService', () => {
       expect(response.page).toBe(1);
       expect(response.limit).toBe(10);
       expect(response.pages).toBe(1);
+    });
+  });
+
+  describe('remove', () => {
+    const validId = '507f1f77bcf86cd799439011';
+    const restaurantId = '507f1f77bcf86cd799439012';
+    const item = { _id: validId, name: 'Farinha', restaurantId };
+
+    it('should delete item and call menu service on success', async () => {
+      mockStockModel.findOneAndDelete.mockImplementation(() => ({
+        exec: mock(() => Promise.resolve(item)),
+      }));
+      mockHttpService.delete.mockImplementation(() =>
+        of({ data: { message: 'ok' }, status: 204 }),
+      );
+
+      await service.remove(validId, restaurantId);
+
+      expect(mockStockModel.findOneAndDelete).toHaveBeenCalledWith({
+        _id: validId,
+        restaurantId,
+      });
+      expect(mockHttpService.delete).toHaveBeenCalledWith(
+        expect.stringContaining(`/products/internal/ingredient/${validId}`),
+        expect.objectContaining({
+          headers: {
+            'x-internal-key': 'test-internal-key',
+            'x-tenant-id': restaurantId,
+          },
+        }),
+      );
+    });
+
+    it('should succeed when menu service returns 404 (no product had the ingredient)', async () => {
+      mockStockModel.findOneAndDelete.mockImplementation(() => ({
+        exec: mock(() => Promise.resolve(item)),
+      }));
+      const axiosError = new AxiosError(
+        'Not Found',
+        '404',
+        undefined as any,
+        undefined as any,
+        { status: 404, data: {} } as any,
+      );
+      mockHttpService.delete.mockImplementation(() => throwError(() => axiosError));
+
+      await expect(
+        service.remove(validId, restaurantId),
+      ).resolves.toBeUndefined();
+    });
+
+    it('should succeed when menu service is unreachable (network error, best-effort)', async () => {
+      mockStockModel.findOneAndDelete.mockImplementation(() => ({
+        exec: mock(() => Promise.resolve(item)),
+      }));
+      const networkError = new Error('connect ECONNREFUSED');
+      (networkError as any).response = undefined;
+      mockHttpService.delete.mockImplementation(() => throwError(() => networkError));
+
+      await expect(
+        service.remove(validId, restaurantId),
+      ).resolves.toBeUndefined();
+    });
+
+    it('should succeed when menu returns 500 (best-effort, item already deleted)', async () => {
+      mockStockModel.findOneAndDelete.mockImplementation(() => ({
+        exec: mock(() => Promise.resolve(item)),
+      }));
+      const serverError = new AxiosError(
+        'Internal Server Error',
+        '500',
+        undefined as any,
+        undefined as any,
+        { status: 500, data: {} } as any,
+      );
+      mockHttpService.delete.mockImplementation(() => throwError(() => serverError));
+
+      await expect(
+        service.remove(validId, restaurantId),
+      ).resolves.toBeUndefined();
+    });
+
+    it('should throw NotFoundException when item does not exist', async () => {
+      mockStockModel.findOneAndDelete.mockImplementation(() => ({
+        exec: mock(() => Promise.resolve(null)),
+      }));
+
+      await expect(
+        service.remove(validId, restaurantId),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException when id is invalid', async () => {
+      await expect(
+        service.remove('invalid-id', restaurantId),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException when restaurantId is invalid', async () => {
+      await expect(
+        service.remove(validId, 'invalid-restaurant-id'),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

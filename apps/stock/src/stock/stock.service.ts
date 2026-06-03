@@ -154,6 +154,13 @@ export class StockService {
       .exec();
 
     if (!updated) {
+      // Verifica se o item existe (não encontrado vs estoque insuficiente)
+      const exists = await this.stockModel.exists({ _id: id, restaurantId });
+      if (exists) {
+        throw new BadRequestException(
+          `Estoque insuficiente para o item solicitado (ID: ${id}).`,
+        );
+      }
       throw new NotFoundException('Item de estoque não encontrado.');
     }
 
@@ -162,22 +169,25 @@ export class StockService {
 
   async remove(id: string, restaurantId: string): Promise<void> {
     this.validateObjectId(id);
+    this.validateObjectId(restaurantId, 'RestaurantId');
 
-    // 1. Verifica se o item existe ANTES de começar
+    // 1. Remove o item do estoque de forma atômica (evita TOCTOU)
     const item = await this.stockModel
-      .findOne({ _id: id, restaurantId })
+      .findOneAndDelete({ _id: id, restaurantId })
       .exec();
+
     if (!item) {
       throw new NotFoundException('Item de estoque não encontrado.');
     }
 
-    const internalKey = this.configService.get<string>('INTERNAL_API_KEY');
-    const menuServiceUrl =
-      this.configService.get<string>('MENU_SERVICE_URL') ||
-      'http://menu-app:3000';
-
-    // 2. Remove o ingrediente de todos os produtos do cardápio
+    // 2. Tenta remover o ingrediente de todos os produtos do cardápio (best-effort)
     try {
+      const internalKey =
+        this.configService.getOrThrow<string>('INTERNAL_API_KEY');
+      const menuServiceUrl =
+        this.configService.get<string>('MENU_SERVICE_URL') ||
+        'http://menu-app:3000';
+
       await firstValueFrom(
         this.httpService.delete(
           `${menuServiceUrl}/products/internal/ingredient/${id}`,
@@ -186,31 +196,32 @@ export class StockService {
               'x-internal-key': internalKey,
               'x-tenant-id': restaurantId,
             },
+            timeout: 5000,
           },
         ),
       );
     } catch (error: any) {
       const status = error.response?.status;
 
-      // 404 significa que nenhum produto tinha esse ingrediente — não é erro
-      if (status !== 404 && status !== 204) {
-        this.logger.error(
-          `Falha ao remover ingrediente ${id} dos produtos: ${error.message}`,
-        );
-        throw new BadRequestException(
-          'Não foi possível remover o ingrediente dos produtos do cardápio.',
-        );
+      // 204 = ingrediente removido com sucesso, 404 = nenhum produto usava — ambos OK
+      if (status === 204 || status === 404) {
+        return;
       }
-    }
 
-    // 3. Deleta o item do estoque
-    const result = await this.stockModel
-      .deleteOne({ _id: id, restaurantId })
-      .exec();
+      // Network error (menu service indisponível) — log e continua
+      if (status === undefined) {
+        this.logger.warn(
+          `Menu service indisponível ao remover ingrediente ${id}. ` +
+            `Item de estoque já foi excluído. Erro: ${error.message}`,
+        );
+        return;
+      }
 
-    if (result.deletedCount === 0) {
-      // Caso raro: item foi deletado entre a verificação e a deleção
-      throw new NotFoundException('Item de estoque não encontrado.');
+      // Outro erro HTTP — log e continua (item já foi excluído)
+      this.logger.error(
+        `Falha ao remover ingrediente ${id} dos produtos (status=${status}). ` +
+          `Item de estoque já foi excluído.`,
+      );
     }
   }
 
@@ -220,6 +231,19 @@ export class StockService {
         `O ${fieldName} informado não é um ID válido.`,
       );
     }
+  }
+
+  async findByIds(ids: string[], restaurantId: string): Promise<Stock[]> {
+    const objectIds = ids
+      .filter((id) => Types.ObjectId.isValid(id))
+      .map((id) => new Types.ObjectId(id));
+
+    if (objectIds.length === 0) return [];
+
+    return this.stockModel
+      .find({ _id: { $in: objectIds }, restaurantId })
+      .lean()
+      .exec();
   }
 
   private async validateSupplier(
