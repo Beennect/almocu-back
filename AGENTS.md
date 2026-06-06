@@ -174,6 +174,8 @@ O servico **auth-app** atua como **API Gateway** para os demais microservicos. O
 - O header `x-internal-key` e usado para chamadas service-to-service quando necessario
 - Cada servico tem seu proprio banco MongoDB, mas todos compartilham a mesma lib `@app/common`
 
+> **Regra (DEC-003):** Toda chamada entre microserviços que **muta estado** deve usar rota `/internal/*` autenticada por `x-internal-key`, e **nunca** propagar `x-user-role` em chamadas internas. Endpoints `/internal/*` NÃO usam `JwtAuthGuard` nem `RolesGuard` — a autenticação é inteiramente por `x-internal-key` (validado em `validateInternalKey`). As rotas públicas permanecem com `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles(...)` para preservar a barreira de segurança para requisições externas. Exemplo de migração: `PATCH /stock/:id/adjust` (público, `@Roles('OWNER','MANAGER')`) → `PATCH /internal/stock/:id/adjust` (interno, `x-internal-key`).
+
 ---
 
 ## Fluxo de Autenticacao

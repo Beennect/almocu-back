@@ -212,6 +212,9 @@ export class OrderService {
       }
 
       // 6. Deduz o estoque (com operação atômica que impede quantidade negativa)
+      //    Usa a rota interna `/internal/stock/:id/adjust` (DEC-003), que valida
+      //    apenas `x-internal-key` e `x-tenant-id` — não propaga JWT do usuário
+      //    nem `x-user-role` (resolução de CR1/CR2/CR3).
       if (adjustments.length > 0) {
         try {
           await Promise.all(
@@ -219,13 +222,11 @@ export class OrderService {
               firstValueFrom(
                 this.httpService
                   .patch(
-                    `${stockServiceUrl}/stock/${adj.stockProductId}/adjust`,
+                    `${stockServiceUrl}/internal/stock/${adj.stockProductId}/adjust`,
                     { delta: adj.delta },
                     {
                       headers: {
-                        Authorization: token,
                         'x-tenant-id': restaurantId,
-                        'x-user-role': role,
                         'x-internal-key': internalKey,
                       },
                     },
@@ -246,13 +247,11 @@ export class OrderService {
               firstValueFrom(
                 this.httpService
                   .patch(
-                    `${stockServiceUrl}/stock/${adj.stockProductId}/adjust`,
+                    `${stockServiceUrl}/internal/stock/${adj.stockProductId}/adjust`,
                     { delta: -adj.delta },
                     {
                       headers: {
-                        Authorization: token,
                         'x-tenant-id': restaurantId,
-                        'x-user-role': role,
                         'x-internal-key': internalKey,
                       },
                     },
