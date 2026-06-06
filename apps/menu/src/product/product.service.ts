@@ -30,7 +30,14 @@ export class ProductService {
     private readonly redisService: RedisService,
   ) {}
 
-  private readonly uploadsDir = join(__dirname, '..', '..', '..', 'uploads', 'products');
+  private readonly uploadsDir = join(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    'uploads',
+    'products',
+  );
 
   private async invalidateCache(restaurantId: string): Promise<void> {
     await this.redisService.incr(`products:cache:version:${restaurantId}`);
@@ -132,9 +139,7 @@ export class ProductService {
       try {
         await this.invalidateCache(restaurantId);
       } catch (cacheError) {
-        this.logger.error(
-          `Falha ao invalidar cache: ${cacheError}`,
-        );
+        this.logger.error(`Falha ao invalidar cache: ${cacheError}`);
       }
       return saved;
     } catch (error: any) {
@@ -202,9 +207,13 @@ export class ProductService {
     }
 
     const updated = await this.productModel
-      .findOneAndUpdate({ _id: id, restaurantId }, { $set: updateData }, {
-        new: true,
-      })
+      .findOneAndUpdate(
+        { _id: id, restaurantId },
+        { $set: updateData },
+        {
+          new: true,
+        },
+      )
       .lean()
       .exec();
 
@@ -224,11 +233,7 @@ export class ProductService {
     return { message: 'Produto removido com sucesso' };
   }
 
-  async updateImage(
-    id: string,
-    restaurantId: string,
-    imageUrl: string,
-  ) {
+  async updateImage(id: string, restaurantId: string, imageUrl: string) {
     const updated = await this.productModel
       .findOneAndUpdate(
         { _id: id, restaurantId },

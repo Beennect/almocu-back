@@ -47,12 +47,7 @@ import { Roles } from '@app/common';
 import type { Pageable } from '@app/common';
 
 /** Extensões de imagem permitidas */
-const IMAGE_MIMETYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-];
+const IMAGE_MIMETYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 const UPLOADS_DIR = join(__dirname, '..', '..', '..', 'uploads', 'products');
 
 @ApiTags('products')

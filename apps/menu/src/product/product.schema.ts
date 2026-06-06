@@ -51,4 +51,7 @@ export class Product extends Document {
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
 
-ProductSchema.index({ name: 1, category: 1, restaurantId: 1 }, { unique: true });
+ProductSchema.index(
+  { name: 1, category: 1, restaurantId: 1 },
+  { unique: true },
+);

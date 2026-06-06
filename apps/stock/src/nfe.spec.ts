@@ -133,7 +133,9 @@ describe('NfeService', () => {
     // Clear all mocks between tests
     mockStockModel.findOne.mockClear();
     mockStockModel.create.mockClear();
-    mockStockModel.updateOne = mock(() => Promise.resolve({ modifiedCount: 1 }));
+    mockStockModel.updateOne = mock(() =>
+      Promise.resolve({ modifiedCount: 1 }),
+    );
     mockSupplierService.findByCnpj.mockClear();
     mockSupplierService.create.mockClear();
     mockHttpService.get.mockClear();
@@ -171,7 +173,8 @@ describe('NfeService', () => {
           callCount++;
           return Promise.resolve({
             _id: `existing-${callCount}`,
-            name: callCount === 1 ? 'AGUA MINERAL RYZEN 1L' : 'ARROZ TIPO 1 5KG',
+            name:
+              callCount === 1 ? 'AGUA MINERAL RYZEN 1L' : 'ARROZ TIPO 1 5KG',
             quantity: 10,
           });
         }),
@@ -261,7 +264,11 @@ describe('NfeService', () => {
       }));
       // SupplierService.create deve retornar o nome que foi passado
       mockSupplierService.create.mockImplementation((dto: any) =>
-        Promise.resolve({ _id: 'supplier-abc', name: dto.name, cnpj: dto.cnpj }),
+        Promise.resolve({
+          _id: 'supplier-abc',
+          name: dto.name,
+          cnpj: dto.cnpj,
+        }),
       );
       mockStockModel.create.mockImplementation((data: any) =>
         Promise.resolve({ _id: 'new-stock-id', ...data }),
@@ -290,19 +297,13 @@ describe('NfeService', () => {
       mockHttpService.get.mockImplementation(() =>
         throwError(
           () =>
-            new AxiosError(
-              'Not found',
-              '404',
-              undefined,
-              null,
-              {
-                status: 404,
-                data: { message: 'CNPJ not found' },
-                statusText: 'Not Found',
-                headers,
-                config: { headers } as any,
-              },
-            ),
+            new AxiosError('Not found', '404', undefined, null, {
+              status: 404,
+              data: { message: 'CNPJ not found' },
+              statusText: 'Not Found',
+              headers,
+              config: { headers } as any,
+            }),
         ),
       );
       mockStockModel.findOne.mockImplementation(() => ({

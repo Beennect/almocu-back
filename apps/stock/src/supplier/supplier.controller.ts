@@ -141,5 +141,3 @@ export class SupplierController {
     return this.supplierService.remove(id, restaurantId);
   }
 }
-
-

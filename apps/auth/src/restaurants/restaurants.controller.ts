@@ -177,10 +177,7 @@ export class RestaurantsController {
   @ApiForbiddenResponse({ description: 'Apenas OWNER' })
   @Delete(':id')
   @HttpCode(200)
-  async suspend(
-    @Param('id') restaurantId: string,
-    @Req() req: Request,
-  ) {
+  async suspend(@Param('id') restaurantId: string, @Req() req: Request) {
     return this.restaurantsService.suspend(restaurantId, req.user!.id);
   }
 
@@ -192,10 +189,7 @@ export class RestaurantsController {
   @Roles(UserRole.OWNER)
   @ApiForbiddenResponse({ description: 'Apenas OWNER' })
   @Patch(':id/reactivate')
-  async reactivate(
-    @Param('id') restaurantId: string,
-    @Req() req: Request,
-  ) {
+  async reactivate(@Param('id') restaurantId: string, @Req() req: Request) {
     return this.restaurantsService.reactivate(restaurantId, req.user!.id);
   }
 }

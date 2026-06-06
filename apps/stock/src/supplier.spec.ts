@@ -142,9 +142,9 @@ describe('SupplierService', () => {
         ),
       }));
 
-      await expect(
-        service.create(dto, restaurantId, userId),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.create(dto, restaurantId, userId)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw ConflictException when CNPJ already exists', async () => {
@@ -157,9 +157,9 @@ describe('SupplierService', () => {
         }),
       }));
 
-      await expect(
-        service.create(dto, restaurantId, userId),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.create(dto, restaurantId, userId)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should trim the name and sanitize CNPJ before saving', async () => {

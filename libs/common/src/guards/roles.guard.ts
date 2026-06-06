@@ -8,7 +8,6 @@ import {
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { UserRole } from '../enums/user-role.enum';
-import { getRoleRank } from '../constants/role-hierarchy';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -33,7 +32,7 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Usuário não autenticado');
     }
 
-    // Admin global roles bypass (OWNER total)
+    // Admin global roles bypass (acesso amplo)
     if (user.globalRoles?.includes('admin')) {
       return true;
     }
@@ -44,13 +43,14 @@ export class RolesGuard implements CanActivate {
       );
     }
 
-    // Hierarquia: calcula o rank mínimo necessário entre os roles exigidos
-    const userRank = getRoleRank(user.role);
-    const minimumRank = Math.min(
-      ...requiredRoles.map((r) => getRoleRank(r)),
-    );
+    // Hierarquia: roles com rank superior têm acesso amplo
+    const PRIVILEGED_ROLES = [UserRole.MANAGER, UserRole.OWNER];
+    if (PRIVILEGED_ROLES.includes(user.role)) {
+      return true;
+    }
 
-    if (userRank < minimumRank || userRank === 0) {
+    // Caso contrário: membership exato
+    if (!requiredRoles.includes(user.role)) {
       throw new ForbiddenException(
         `Acesso negado: necessário cargo ${requiredRoles.join(' ou ')}`,
       );

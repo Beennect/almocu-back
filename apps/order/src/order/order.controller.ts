@@ -44,9 +44,9 @@ export class OrderController {
 
   @Post()
   @ApiOperation({ summary: 'Cria um novo pedido' })
-  @Roles('WAITER', 'KITCHEN', 'OWNER', 'MANAGER')
+  @Roles('WAITER', 'OWNER', 'MANAGER')
   @ApiForbiddenResponse({
-    description: 'Garçons, cozinheiros, gerentes e proprietários',
+    description: 'Garçons, gerentes e proprietários',
   })
   create(
     @Req() req: any,

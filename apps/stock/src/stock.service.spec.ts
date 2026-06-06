@@ -177,7 +177,9 @@ describe('StockService', () => {
         undefined as any,
         { status: 404, data: {} } as any,
       );
-      mockHttpService.delete.mockImplementation(() => throwError(() => axiosError));
+      mockHttpService.delete.mockImplementation(() =>
+        throwError(() => axiosError),
+      );
 
       await expect(
         service.remove(validId, restaurantId),
@@ -190,7 +192,9 @@ describe('StockService', () => {
       }));
       const networkError = new Error('connect ECONNREFUSED');
       (networkError as any).response = undefined;
-      mockHttpService.delete.mockImplementation(() => throwError(() => networkError));
+      mockHttpService.delete.mockImplementation(() =>
+        throwError(() => networkError),
+      );
 
       await expect(
         service.remove(validId, restaurantId),
@@ -208,7 +212,9 @@ describe('StockService', () => {
         undefined as any,
         { status: 500, data: {} } as any,
       );
-      mockHttpService.delete.mockImplementation(() => throwError(() => serverError));
+      mockHttpService.delete.mockImplementation(() =>
+        throwError(() => serverError),
+      );
 
       await expect(
         service.remove(validId, restaurantId),
@@ -220,15 +226,15 @@ describe('StockService', () => {
         exec: mock(() => Promise.resolve(null)),
       }));
 
-      await expect(
-        service.remove(validId, restaurantId),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.remove(validId, restaurantId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException when id is invalid', async () => {
-      await expect(
-        service.remove('invalid-id', restaurantId),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.remove('invalid-id', restaurantId)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException when restaurantId is invalid', async () => {

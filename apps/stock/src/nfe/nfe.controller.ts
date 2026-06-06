@@ -54,9 +54,7 @@ export class NfeController {
 
     const sizeLimit = 10 * 1024 * 1024; // 10 MB
     if (file.size > sizeLimit) {
-      throw new BadRequestException(
-        'O arquivo XML excede o limite de 10 MB.',
-      );
+      throw new BadRequestException('O arquivo XML excede o limite de 10 MB.');
     }
 
     return this.nfeService.processXml(file.buffer, restaurantId);

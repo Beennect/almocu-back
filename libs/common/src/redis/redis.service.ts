@@ -35,10 +35,7 @@ export class RedisService implements OnModuleDestroy {
     } catch (error) {
       // Durante o encerramento do app, o stream pode já estar fechado.
       // Isso é comum em testes onde o lifecycle é mais agressivo.
-      this.logger.warn(
-        'Redis quit during shutdown',
-        (error as Error).message,
-      );
+      this.logger.warn('Redis quit during shutdown', (error as Error).message);
     }
   }
 

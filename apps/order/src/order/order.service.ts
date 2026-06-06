@@ -177,9 +177,7 @@ export class OrderService {
           }
           const available = stockItem.quantity ?? 0;
           if (available < info.needed) {
-            insufficient.push(
-              `${stockItem.name || info.name}`,
-            );
+            insufficient.push(`${stockItem.name || info.name}`);
           }
         }
 

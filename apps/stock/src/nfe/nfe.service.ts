@@ -235,9 +235,7 @@ export class NfeService {
         this.logger.warn(`Rate limit da BrasilAPI atingido para CNPJ ${cnpj}.`);
         return null;
       }
-      throw new Error(
-        `Falha ao consultar BrasilAPI: ${error.message}`,
-      );
+      throw new Error(`Falha ao consultar BrasilAPI: ${error.message}`);
     }
   }
 
@@ -252,12 +250,9 @@ export class NfeService {
     const data = await this.fetchCompanyByCnpj(cnpj);
     if (!data) return null;
 
-    const name =
-      data.razao_social?.trim() || data.nome_fantasia?.trim();
+    const name = data.razao_social?.trim() || data.nome_fantasia?.trim();
     if (!name) {
-      this.logger.warn(
-        `BrasilAPI não retornou nome para CNPJ ${cnpj}.`,
-      );
+      this.logger.warn(`BrasilAPI não retornou nome para CNPJ ${cnpj}.`);
       return null;
     }
 

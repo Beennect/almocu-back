@@ -31,7 +31,6 @@ import {
   secondsUntilNextWindow,
 } from './totp.util';
 
-
 @Injectable()
 export class RestaurantsService {
   private readonly logger = new Logger(RestaurantsService.name);
@@ -132,7 +131,9 @@ export class RestaurantsService {
 
     if (!parentWithSlot) {
       // Pode ser que o restaurante tenha sido excluído ou o limite foi atingido
-      const stillExists = await this.restaurantModel.exists({ _id: parent._id });
+      const stillExists = await this.restaurantModel.exists({
+        _id: parent._id,
+      });
       if (!stillExists) {
         throw new NotFoundException('Restaurante principal não encontrado');
       }
@@ -284,7 +285,10 @@ export class RestaurantsService {
 
         if (restaurant) {
           // Verificar se o código realmente corresponde (validação dupla)
-          const validWindow = verifyTotpCode(normalizedCode, restaurant.totpSecret);
+          const validWindow = verifyTotpCode(
+            normalizedCode,
+            restaurant.totpSecret,
+          );
           if (validWindow !== null) {
             matchedRestaurant = restaurant;
             matchedWindow = validWindow;
@@ -296,10 +300,7 @@ export class RestaurantsService {
 
     // ── 2. Fallback: streaming cursor (memória O(1) em vez de O(N)) ──
     if (!matchedRestaurant) {
-      const cursor = this.restaurantModel
-        .find()
-        .select('+totpSecret')
-        .cursor();
+      const cursor = this.restaurantModel.find().select('+totpSecret').cursor();
 
       for await (const restaurant of cursor) {
         const window = verifyTotpCode(normalizedCode, restaurant.totpSecret);
