@@ -12,7 +12,7 @@ import { Pageable, Page, RedisService } from '@app/common';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, timeout } from 'rxjs';
 import { writeFile, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { promisify } from 'util';
@@ -69,20 +69,18 @@ export class ProductService {
   private async validateStockItem(
     stockProductId: string,
     restaurantId: string,
-    token: string,
-    role: string,
   ): Promise<void> {
     const stockServiceUrl =
       this.configService.get<string>('STOCK_SERVICE_URL') ||
       'http://stock-app:3000';
+    const internalKey = this.configService.get<string>('INTERNAL_API_KEY');
 
     try {
       await firstValueFrom(
-        this.httpService.get(`${stockServiceUrl}/stock/${stockProductId}`, {
+        this.httpService.get(`${stockServiceUrl}/internal/stock/${stockProductId}`, {
           headers: {
-            Authorization: token,
+            'x-internal-key': internalKey,
             'x-tenant-id': restaurantId,
-            'x-user-role': role,
           },
         }),
       );
@@ -98,24 +96,63 @@ export class ProductService {
     }
   }
 
+  /**
+   * Valida múltiplos ingredientes em uma única chamada batch ao serviço de estoque.
+   */
+  private async validateStockItems(
+    stockProductIds: string[],
+    restaurantId: string,
+  ): Promise<void> {
+    if (!stockProductIds.length) return;
+
+    const stockServiceUrl =
+      this.configService.get<string>('STOCK_SERVICE_URL') ||
+      'http://stock-app:3000';
+    const internalKey = this.configService.get<string>('INTERNAL_API_KEY');
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          `${stockServiceUrl}/internal/stock/batch`,
+          { ids: stockProductIds },
+          {
+            headers: {
+              'x-internal-key': internalKey,
+              'x-tenant-id': restaurantId,
+            },
+          },
+        ).pipe(timeout(10000)),
+      );
+
+      const foundIds: string[] = (response.data || []).map(
+        (item: any) => item._id?.toString() || item.id,
+      );
+
+      const missingIds = stockProductIds.filter((id) => !foundIds.includes(id));
+      if (missingIds.length > 0) {
+        throw new BadRequestException(
+          `Ingredientes não encontrados no estoque: ${missingIds.join(', ')}`,
+        );
+      }
+    } catch (error: any) {
+      if (error instanceof BadRequestException) throw error;
+      const detail =
+        error.response?.data?.message || error.message || 'erro desconhecido';
+      throw new BadRequestException(
+        `Erro ao validar ingredientes no estoque: ${detail}`,
+      );
+    }
+  }
+
   async create(
     createProductDto: CreateProductDto,
     restaurantId: string,
-    token: string,
-    role: string,
   ) {
-    // Valida TODOS os ingredientes em paralelo
-    if (createProductDto.ingredients?.length) {
-      await Promise.all(
-        createProductDto.ingredients.map((ingredient) =>
-          this.validateStockItem(
-            ingredient.stockProductId,
-            restaurantId,
-            token,
-            role,
-          ),
-        ),
-      );
+    // Valida TODOS os ingredientes em uma única chamada batch
+    const ingredientIds =
+      createProductDto.ingredients?.map((ing) => ing.stockProductId) || [];
+    if (ingredientIds.length > 0) {
+      await this.validateStockItems(ingredientIds, restaurantId);
     }
 
     // Extrai imageBase64 e processa a imagem
@@ -192,6 +229,13 @@ export class ProductService {
     updateProductDto: UpdateProductDto,
     restaurantId: string,
   ) {
+    // Valida ingredientes se estiverem sendo atualizados
+    const ingredientIds =
+      updateProductDto.ingredients?.map((ing) => ing.stockProductId) || [];
+    if (ingredientIds.length > 0) {
+      await this.validateStockItems(ingredientIds, restaurantId);
+    }
+
     // Extrai imageBase64 e processa a imagem
     const { imageBase64, ...dto } = updateProductDto;
     const imageUrl = await this.saveBase64Image(imageBase64);

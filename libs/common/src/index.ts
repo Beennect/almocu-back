@@ -1,8 +1,12 @@
 export { JwtAuthModule } from './modules/jwt-auth.module';
 export { JwtAuthGuard } from './guards/jwt-auth.guard';
 export { RolesGuard } from './guards/roles.guard';
+export { InternalGuard } from './guards/internal.guard';
 export { JwtStrategy } from './strategies/jwt.strategy';
 export { RedisService } from './redis/redis.service';
+export { AuditModule } from './modules/audit.module';
+export { AuditService } from './services/audit.service';
+export { AuditLog } from './schemas/audit-log.schema';
 export * from './interfaces';
 export * from './decorators';
 export * from './validators';

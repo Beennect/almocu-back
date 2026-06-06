@@ -8,7 +8,9 @@ import {
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { UserRole } from '../enums/user-role.enum';
-import { getRoleRank } from '../constants/role-hierarchy';
+
+/** Roles que têm acesso hierárquico (acessam tudo que roles inferiores acessam) */
+const ADMIN_ROLES = new Set([UserRole.OWNER, UserRole.MANAGER]);
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -44,13 +46,13 @@ export class RolesGuard implements CanActivate {
       );
     }
 
-    // Hierarquia: calcula o rank mínimo necessário entre os roles exigidos
-    const userRank = getRoleRank(user.role);
-    const minimumRank = Math.min(
-      ...requiredRoles.map((r) => getRoleRank(r)),
-    );
+    // OWNER e MANAGER têm acesso hierárquico a qualquer endpoint
+    if (ADMIN_ROLES.has(user.role as UserRole)) {
+      return true;
+    }
 
-    if (userRank < minimumRank || userRank === 0) {
+    // Para demais roles: verificação EXATA de role na lista de permitidas
+    if (!requiredRoles.includes(user.role as UserRole)) {
       throw new ForbiddenException(
         `Acesso negado: necessário cargo ${requiredRoles.join(' ou ')}`,
       );

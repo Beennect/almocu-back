@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ProductModule } from './product/product.module';
+import { InternalModule } from './internal/internal.module';
 import { JwtAuthModule } from '@app/common';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
@@ -25,6 +26,7 @@ import { APP_GUARD } from '@nestjs/core';
     }),
     JwtAuthModule,
     ProductModule,
+    InternalModule,
   ],
   providers: [
     {

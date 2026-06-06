@@ -195,6 +195,26 @@ export class AuthService {
     await this.usersService.update(userId, { password: hashedPassword });
   }
 
+  /**
+   * Retorna a lista de restaurantes ativos do usuário com suas respectivas roles.
+   * Reutiliza a mesma query que o método login() faz.
+   */
+  async getUserProfile(userId: string) {
+    const userLinks = (await this.userRestaurantModel
+      .find({ userId: new Types.ObjectId(userId), status: 'active' })
+      .populate('restaurantId')
+      .exec()) as unknown as RestaurantLink[];
+
+    return userLinks
+      .filter((link) => link.restaurantId)
+      .map((link) => ({
+        id: link.restaurantId._id,
+        name: link.restaurantId.name,
+        role: link.role,
+        status: link.restaurantId.status,
+      }));
+  }
+
   async logout(token: string) {
     try {
       const decoded = this.jwtService.decode(token);

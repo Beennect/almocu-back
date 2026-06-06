@@ -73,9 +73,11 @@ export class OrderService {
         throw new BadRequestException(`Cardápio indisponível: ${detail}`);
       }
 
-      if (products.length !== productIds.length) {
+      // Usa Set para deduplicar — o batch endpoint retorna produtos únicos
+      const uniqueProductIds = [...new Set(productIds)];
+      if (products.length !== uniqueProductIds.length) {
         const foundIds = products.map((p: any) => p._id.toString());
-        const missingIds = productIds.filter((id) => !foundIds.includes(id));
+        const missingIds = uniqueProductIds.filter((id) => !foundIds.includes(id));
         throw new BadRequestException(
           `Produtos não encontrados: ${missingIds.join(', ')}`,
         );
@@ -106,22 +108,25 @@ export class OrderService {
       });
 
       // 3. Calcula os ajustes de estoque necessários (ingredientes × quantidade pedida)
-      const adjustments: Array<{
-        stockProductId: string;
-        delta: number;
-      }> = [];
+      //    Já mescla por stockProductId para evitar duplicatas no envio batch
+      const adjustmentMap = new Map<string, number>();
 
       for (const itemDto of createOrderDto.items) {
         const product = productMap.get(itemDto.productId);
         if (!product?.ingredients?.length) continue;
 
         for (const ingredient of product.ingredients) {
-          adjustments.push({
-            stockProductId: ingredient.stockProductId,
-            delta: -(ingredient.quantity * itemDto.quantity),
-          });
+          const delta = -(ingredient.quantity * itemDto.quantity);
+          adjustmentMap.set(
+            ingredient.stockProductId,
+            (adjustmentMap.get(ingredient.stockProductId) || 0) + delta,
+          );
         }
       }
+
+      const adjustments = Array.from(adjustmentMap.entries()).map(
+        ([stockProductId, delta]) => ({ stockProductId, delta }),
+      );
 
       // 4. VALIDA o estoque ANTES de criar o pedido
       if (adjustments.length > 0) {
@@ -192,6 +197,15 @@ export class OrderService {
 
       // 5. Cria o pedido (estoque já validado)
       let order: Order;
+
+      // Se o criador é DELIVERY e não informou deliveryUserId, auto-atribui
+      const deliveryUserId =
+        createOrderDto.deliveryUserId
+          ? new Types.ObjectId(createOrderDto.deliveryUserId)
+          : role === 'DELIVERY'
+            ? new Types.ObjectId(userId)
+            : undefined;
+
       try {
         order = await new this.orderModel({
           items,
@@ -202,6 +216,7 @@ export class OrderService {
           userId: new Types.ObjectId(userId),
           restaurantId: new Types.ObjectId(restaurantId),
           totalValue,
+          deliveryUserId,
           statusHistory: [{ status: 'pendente', timestamp: new Date() }],
         }).save();
       } catch (saveError: any) {
@@ -213,28 +228,22 @@ export class OrderService {
         );
       }
 
-      // 6. Deduz o estoque (com operação atômica que impede quantidade negativa)
+      // 6. Deduz o estoque (chamada batch única)
       if (adjustments.length > 0) {
         try {
-          await Promise.all(
-            adjustments.map((adj) =>
-              firstValueFrom(
-                this.httpService
-                  .patch(
-                    `${stockServiceUrl}/stock/${adj.stockProductId}/adjust`,
-                    { delta: adj.delta },
-                    {
-                      headers: {
-                        Authorization: token,
-                        'x-tenant-id': restaurantId,
-                        'x-user-role': role,
-                        'x-internal-key': internalKey,
-                      },
-                    },
-                  )
-                  .pipe(timeout(10000)),
-              ),
-            ),
+          await firstValueFrom(
+            this.httpService
+              .post(
+                `${stockServiceUrl}/internal/stock/batch/adjust`,
+                { adjustments: adjustments.map((a) => ({ id: a.stockProductId, delta: a.delta })) },
+                {
+                  headers: {
+                    'x-internal-key': internalKey,
+                    'x-tenant-id': restaurantId,
+                  },
+                },
+              )
+              .pipe(timeout(15000)),
           );
         } catch (stockError: unknown) {
           // Rollback: como o estoque já foi validado antes, isso só ocorre
@@ -243,26 +252,32 @@ export class OrderService {
             `Falha na dedução de estoque do pedido ${(order as any)._id}. Rollback...`,
           );
 
-          await Promise.allSettled(
-            adjustments.map((adj) =>
-              firstValueFrom(
-                this.httpService
-                  .patch(
-                    `${stockServiceUrl}/stock/${adj.stockProductId}/adjust`,
-                    { delta: -adj.delta },
-                    {
-                      headers: {
-                        Authorization: token,
-                        'x-tenant-id': restaurantId,
-                        'x-user-role': role,
-                        'x-internal-key': internalKey,
-                      },
+          // Rollback usando batch adjust com deltas invertidos
+          try {
+            await firstValueFrom(
+              this.httpService
+                .post(
+                  `${stockServiceUrl}/internal/stock/batch/adjust`,
+                  {
+                    adjustments: adjustments.map((a) => ({
+                      id: a.stockProductId,
+                      delta: -a.delta,
+                    })),
+                  },
+                  {
+                    headers: {
+                      'x-internal-key': internalKey,
+                      'x-tenant-id': restaurantId,
                     },
-                  )
-                  .pipe(timeout(10000)),
-              ),
-            ),
-          );
+                  },
+                )
+                .pipe(timeout(15000)),
+            );
+          } catch (rollbackError: unknown) {
+            this.logger.error(
+              `Rollback de estoque também falhou para pedido ${(order as any)._id}: ${(rollbackError as any)?.message}`,
+            );
+          }
 
           const message =
             (stockError as any)?.response?.data?.message ||
@@ -342,20 +357,80 @@ export class OrderService {
     return new Page(items as unknown as Order[], total, pageable);
   }
 
+  /**
+   * Agrega estatísticas de performance por usuário em um restaurante.
+   * Retorna total de pedidos, receita, total de itens preparados para cada userId.
+   */
+  async getStaffPerformance(
+    restaurantId: string,
+  ): Promise<
+    Array<{
+      userId: string;
+      totalOrders: number;
+      totalRevenue: number;
+      dishesPrepared: number;
+    }>
+  > {
+    const stats = await this.orderModel
+      .aggregate([
+        { $match: { restaurantId: new Types.ObjectId(restaurantId) } },
+        {
+          $group: {
+            _id: '$userId',
+            totalOrders: { $sum: 1 },
+            totalRevenue: { $sum: { $ifNull: ['$totalValue', 0] } },
+            dishesPrepared: {
+              $sum: { $sum: { $map: { input: { $ifNull: ['$items', []] }, as: 'item', in: '$$item.quantity' } } },
+            },
+          },
+        },
+        {
+          $project: {
+            userId: { $toString: '$_id' },
+            totalOrders: 1,
+            totalRevenue: { $round: ['$totalRevenue', 2] },
+            dishesPrepared: 1,
+            _id: 0,
+          },
+        },
+      ])
+      .exec();
+
+    return stats;
+  }
+
   async findAllByUser(
     userId: string,
     pageable: Pageable,
+    role?: string,
   ): Promise<Page<Order>> {
+    let filter: Record<string, any>;
+
+    if (role === 'DELIVERY') {
+      // DELIVERY vê pedidos atribuídos a ele OU (PRONTO + não atribuídos)
+      filter = {
+        $or: [
+          { deliveryUserId: new Types.ObjectId(userId) },
+          {
+            status: 'pronto',
+            deliveryAddress: { $exists: true, $ne: null },
+          },
+        ],
+      };
+    } else {
+      filter = { userId: new Types.ObjectId(userId) };
+    }
+
     const [items, total] = await Promise.all([
       this.orderModel
-        .find({ userId: new Types.ObjectId(userId) })
+        .find(filter)
         .sort({ createdAt: -1 })
         .skip(pageable.skip)
         .limit(pageable.limit)
         .lean()
         .exec(),
       this.orderModel
-        .countDocuments({ userId: new Types.ObjectId(userId) })
+        .countDocuments(filter)
         .exec(),
     ]);
 
@@ -367,6 +442,8 @@ export class OrderService {
     restaurantId: string,
     status: string,
     role: string,
+    userId: string,
+    deliveryUserId?: string,
   ): Promise<Order> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('ID do pedido inválido');
@@ -375,21 +452,11 @@ export class OrderService {
       throw new BadRequestException('restaurantId inválido');
     }
 
-    const order = await this.orderModel
-      .findOne({
-        _id: new Types.ObjectId(id),
-        restaurantId: new Types.ObjectId(restaurantId),
-      })
-      .exec();
-
-    if (!order) {
-      throw new NotFoundException('Pedido não encontrado');
-    }
-
     // Valida transição permitida por role
     const allowedTransitions: Record<string, string[]> = {
       KITCHEN: ['em_preparo', 'pronto'],
       DELIVERY: ['saiu_para_entrega', 'entregue'],
+      CASHIER: ['pronto', 'entregue'],
       OWNER: [
         'em_preparo',
         'pronto',
@@ -413,33 +480,113 @@ export class OrderService {
       );
     }
 
-    // KITCHEN só pode avançar: pendente → em_preparo → pronto
+    // Converte IDs para ObjectId
+    const orderId = new Types.ObjectId(id);
+    const restId = new Types.ObjectId(restaurantId);
+    const userIdObj = new Types.ObjectId(userId);
+
+    // Define o deliveryUserId para a transição
+    let assignedDeliveryUserId: Types.ObjectId | undefined;
+    if (deliveryUserId) {
+      assignedDeliveryUserId = new Types.ObjectId(deliveryUserId);
+    } else if (role === 'DELIVERY' && status === 'saiu_para_entrega') {
+      // Auto-assign para o entregador logado
+      assignedDeliveryUserId = userIdObj;
+    }
+
+    const statusEntry = { status, timestamp: new Date() };
+
+    // --- Validações específicas por role + atualização ---
+
+    // Helper para validação de transição
+    const validateTransition = async (validChecks: Array<{ from: string; to: string }>): Promise<void> => {
+      const order = await this.orderModel.findOne({
+        _id: orderId,
+        restaurantId: restId,
+      }).exec();
+      if (!order) throw new NotFoundException('Pedido não encontrado');
+
+      const isValid = validChecks.some(
+        (c) => order.status === c.from && status === c.to,
+      );
+      if (!isValid) {
+        const transitions = validChecks.map((c) => `"${c.from}" → "${c.to}"`).join(' ou ');
+        throw new BadRequestException(
+          `${role} só pode alterar de ${transitions}`,
+        );
+      }
+    };
+
     if (role === 'KITCHEN') {
-      const valid =
-        (order.status === 'pendente' && status === 'em_preparo') ||
-        (order.status === 'em_preparo' && status === 'pronto');
-      if (!valid) {
-        throw new BadRequestException(
-          `Cozinheiros só podem alterar de "${order.status}" para "em_preparo" ou "pronto"`,
-        );
+      await validateTransition([
+        { from: 'pendente', to: 'em_preparo' },
+        { from: 'em_preparo', to: 'pronto' },
+      ]);
+    } else if (role === 'CASHIER') {
+      await validateTransition([
+        { from: 'em_preparo', to: 'pronto' },
+        { from: 'pronto', to: 'entregue' },
+      ]);
+    } else if (role === 'DELIVERY') {
+      await validateTransition([
+        { from: 'pronto', to: 'saiu_para_entrega' },
+        { from: 'saiu_para_entrega', to: 'entregue' },
+      ]);
+
+      // Transição PRONTO → SAIU_PARA_ENTREGA: findOneAndUpdate atômico
+      // previne race condition (dois entregadores pegarem o mesmo pedido)
+      if (status === 'saiu_para_entrega') {
+        const updated = await this.orderModel
+          .findOneAndUpdate(
+            {
+              _id: orderId,
+              restaurantId: restId,
+              status: 'pronto',
+              deliveryUserId: { $exists: false },
+            },
+            {
+              $set: { status, deliveryUserId: assignedDeliveryUserId },
+              $push: { statusHistory: statusEntry },
+            },
+            { new: true },
+          )
+          .exec();
+
+        if (!updated) {
+          const existingOrder = await this.orderModel.findById(orderId).exec();
+          if (existingOrder?.deliveryUserId) {
+            throw new BadRequestException(
+              'Este pedido já foi atribuído a outro entregador',
+            );
+          }
+          throw new BadRequestException(
+            'Este pedido não está mais disponível para entrega',
+          );
+        }
+        return updated;
       }
+      // SAIU_PARA_ENTREGA → ENTREGUE (sem lock necessário)
     }
 
-    // DELIVERY só pode: pronto → sai_para_entrega → entregue
-    if (role === 'DELIVERY') {
-      const valid =
-        (order.status === 'pronto' && status === 'saiu_para_entrega') ||
-        (order.status === 'saiu_para_entrega' && status === 'entregue');
-      if (!valid) {
-        throw new BadRequestException(
-          `Entregadores só podem alterar de "${order.status}" para "saiu_para_entrega" ou "entregue"`,
-        );
-      }
+    // Atualização padrão para KITCHEN, CASHIER, OWNER, MANAGER, DELIVERY (entregue)
+    const setFields: Record<string, any> = { status };
+    if (assignedDeliveryUserId) {
+      setFields.deliveryUserId = assignedDeliveryUserId;
     }
 
-    order.status = status;
-    order.statusHistory.push({ status, timestamp: new Date() });
-    return order.save();
+    const updated = await this.orderModel
+      .findOneAndUpdate(
+        { _id: orderId, restaurantId: restId },
+        { $set: setFields, $push: { statusHistory: statusEntry } },
+        { new: true },
+      )
+      .exec();
+
+    if (!updated) {
+      throw new NotFoundException('Pedido não encontrado');
+    }
+
+    return updated;
   }
 
   async remove(id: string, restaurantId: string): Promise<void> {

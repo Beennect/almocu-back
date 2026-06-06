@@ -16,11 +16,21 @@ export class ProxyMiddleware implements NestMiddleware {
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {
+    const stockUrl =
+      this.configService.get<string>('STOCK_SERVICE_URL') ||
+      'http://stock-app:3000';
+    const menuUrl =
+      this.configService.get<string>('MENU_SERVICE_URL') ||
+      'http://menu-app:3000';
+    const orderUrl =
+      this.configService.get<string>('ORDER_SERVICE_URL') ||
+      'http://order-app:3000';
+
     this.proxies = {
-      '/api/stock': this.createProxy('http://stock-app:3000'),
-      '/api/menu': this.createProxy('http://menu-app:3000'),
-      '/api/order': this.createProxy('http://order-app:3000'),
-      '/uploads': this.createProxy('http://menu-app:3000'),
+      '/api/stock': this.createProxy(stockUrl),
+      '/api/menu': this.createProxy(menuUrl),
+      '/api/order': this.createProxy(orderUrl),
+      '/uploads': this.createProxy(menuUrl),
     };
   }
 

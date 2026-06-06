@@ -10,10 +10,7 @@ import {
   UseInterceptors,
   UploadedFile,
   Req,
-  Headers,
   BadRequestException,
-  UnauthorizedException,
-  HttpCode,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -72,19 +69,15 @@ export class ProductController {
 
   @Post()
   @ApiOperation({ summary: 'Cria um novo produto no cardápio' })
-  @Roles('OWNER', 'MANAGER')
-  @ApiForbiddenResponse({ description: 'Apenas proprietários e gerentes' })
+  @Roles('OWNER', 'MANAGER', 'KITCHEN')
+  @ApiForbiddenResponse({ description: 'Apenas proprietários, gerentes e cozinheiros' })
   create(
     @Body() createProductDto: CreateProductDto,
-    @Req() req: any,
     @RestaurantId() restaurantId: string,
   ) {
-    const token = req.headers.authorization;
     return this.productService.create(
       createProductDto,
       restaurantId,
-      token,
-      req.user.role,
     );
   }
 
@@ -125,8 +118,8 @@ export class ProductController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Atualiza um produto' })
-  @Roles('OWNER', 'MANAGER')
-  @ApiForbiddenResponse({ description: 'Apenas proprietários e gerentes' })
+  @Roles('OWNER', 'MANAGER', 'KITCHEN')
+  @ApiForbiddenResponse({ description: 'Apenas proprietários, gerentes e cozinheiros' })
   update(
     @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
@@ -197,39 +190,6 @@ export class ProductController {
 
     const imageUrl = `/uploads/products/${file.filename}`;
     return this.productService.updateImage(id, restaurantId, imageUrl);
-  }
-
-  /**
-   * Endpoint INTERNO (service-to-service).
-   * Remove um ingrediente de TODOS os produtos do restaurante.
-   * Chamado pelo stock-app quando um item de estoque é excluído.
-   */
-  @Delete('internal/ingredient/:stockProductId')
-  @HttpCode(204)
-  @ApiOperation({
-    summary: '[Interno] Remove ingrediente de todos os produtos',
-    description: 'Endpoint service-to-service. Requer x-internal-key.',
-  })
-  @ApiHeader({
-    name: 'x-internal-key',
-    description: 'Chave interna de autenticação entre serviços',
-    required: true,
-  })
-  async removeIngredientFromAllProducts(
-    @Param('stockProductId') stockProductId: string,
-    @RestaurantId() restaurantId: string,
-    @Headers('x-internal-key') internalKey: string,
-  ) {
-    const expectedKey = this.configService.get<string>('INTERNAL_API_KEY');
-
-    if (!expectedKey || internalKey !== expectedKey) {
-      throw new UnauthorizedException('Chave interna inválida');
-    }
-
-    return this.productService.removeIngredientFromAllProducts(
-      stockProductId,
-      restaurantId,
-    );
   }
 
   @Post('batch')

@@ -108,14 +108,26 @@ export class AuthController {
   })
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
-  getMe(@Req() req: AuthenticatedRequest) {
+  async getMe(@Req() req: AuthenticatedRequest) {
     const { id, sub, username, globalRoles, restaurantId, role } = req.user;
+    const userId = id ?? sub;
+
+    // Busca a lista de restaurantes+roles do usuário no banco
+    // (o JWT não carrega role nem restaurantId — vêm como null)
+    let restaurants: Array<{ id: any; name: string; role: string; status: string }> = [];
+    if (userId) {
+      restaurants = await this.authService.getUserProfile(userId);
+    }
+
     return {
-      id: id ?? sub,
+      id: userId,
       username,
+      email: username,
+      name: username,
       globalRoles,
       restaurantId,
       activeRole: role,
+      restaurants,
     };
   }
 

@@ -84,6 +84,11 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   observations?: string;
+
+  @ApiProperty({ required: false, example: '60d5ecb8b392d70015f8e32a' })
+  @IsOptional()
+  @IsMongoId()
+  deliveryUserId?: string;
 }
 
 export class UpdateOrderStatusDto {
@@ -106,4 +111,9 @@ export class UpdateOrderStatusDto {
     'cancelado',
   ])
   status!: string;
+
+  @ApiProperty({ required: false, example: '60d5ecb8b392d70015f8e32a' })
+  @IsOptional()
+  @IsMongoId()
+  deliveryUserId?: string;
 }

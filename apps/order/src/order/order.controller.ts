@@ -96,10 +96,17 @@ export class OrderController {
     return this.orderService.findAllByRestaurant(restaurantId, pageable);
   }
 
-  @Get('user')
+  @Get('staff-performance')
+  @ApiOperation({ summary: 'Estatísticas de performance por funcionário' })
+  @Roles('OWNER', 'MANAGER')
+  getStaffPerformance(@RestaurantId() restaurantId: string) {
+    return this.orderService.getStaffPerformance(restaurantId);
+  }
+
   @ApiOperation({
     summary: 'Lista todos os pedidos do usuário logado com paginação',
   })
+  @Get('user')
   @Roles('WAITER', 'KITCHEN', 'DELIVERY', 'OWNER', 'MANAGER')
   @ApiQuery({
     name: 'page',
@@ -120,7 +127,7 @@ export class OrderController {
     description: 'Lista paginada de pedidos do usuário',
   })
   findAllByUser(@Req() req: any, @PageableParams() pageable: Pageable) {
-    return this.orderService.findAllByUser(req.user.id, pageable);
+    return this.orderService.findAllByUser(req.user.id, pageable, req.user.role);
   }
 
   @Get(':id')
@@ -141,7 +148,7 @@ export class OrderController {
 
   @Patch(':id/status')
   @ApiOperation({ summary: 'Atualiza o status de um pedido' })
-  @Roles('KITCHEN', 'DELIVERY', 'OWNER', 'MANAGER')
+  @Roles('KITCHEN', 'CASHIER', 'DELIVERY', 'OWNER', 'MANAGER')
   @ApiForbiddenResponse({
     description: 'Restrito por função (ver documentação interna)',
   })
@@ -156,6 +163,8 @@ export class OrderController {
       restaurantId,
       updateStatusDto.status,
       req.user.role,
+      req.user.id,
+      updateStatusDto.deliveryUserId,
     );
   }
 

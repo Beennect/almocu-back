@@ -75,6 +75,9 @@ export class Order extends Document {
   @Prop({ type: Types.ObjectId, required: true, index: true })
   userId: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, index: true })
+  deliveryUserId?: Types.ObjectId;
+
   @Prop({ type: [OrderItemSchema], required: true })
   items: OrderItem[];
 
@@ -140,3 +143,5 @@ export const OrderSchema = SchemaFactory.createForClass(Order);
 OrderSchema.index({ restaurantId: 1, createdAt: -1 });
 // Índice composto para otimizar a ordenação por data para cada usuário
 OrderSchema.index({ userId: 1, createdAt: -1 });
+// Índice composto para queries de delivery person
+OrderSchema.index({ restaurantId: 1, deliveryUserId: 1, createdAt: -1 });
