@@ -24,7 +24,7 @@ export class DeliveryAddress {
   @Prop({ required: true })
   street: string;
 
-  @Prop({ required: true })
+  @Prop({ required: false })
   number: string;
 
   @Prop()
