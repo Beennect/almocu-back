@@ -5,7 +5,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { Order } from './order/order.schema';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
-import { Pageable } from '@app/common';
+import { Pageable, RedisService } from '@app/common';
 
 describe('OrderService', () => {
   let service: OrderService;
@@ -49,6 +49,10 @@ describe('OrderService', () => {
     get: mock(() => 'http://mock-menu-service'),
   };
 
+  const mockRedisService = {
+    publish: mock(() => Promise.resolve()),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -64,6 +68,10 @@ describe('OrderService', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: RedisService,
+          useValue: mockRedisService,
         },
       ],
     }).compile();

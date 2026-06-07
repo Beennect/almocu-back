@@ -173,6 +173,7 @@ export class ProductService {
           `Falha ao invalidar cache: ${cacheError}`,
         );
       }
+      this.publishEvent(restaurantId, 'menu:changed', { action: 'create', item: saved });
       return saved;
     } catch (error: any) {
       if (error.code === 11000) {
@@ -255,6 +256,7 @@ export class ProductService {
     if (!updated) throw new NotFoundException('Produto não encontrado.');
 
     await this.invalidateCache(restaurantId);
+    this.publishEvent(restaurantId, 'menu:changed', { action: 'update', item: updated });
     return updated;
   }
 
@@ -265,6 +267,7 @@ export class ProductService {
     if (!deleted) throw new NotFoundException('Produto não encontrado.');
 
     await this.invalidateCache(restaurantId);
+    this.publishEvent(restaurantId, 'menu:changed', { action: 'remove', id });
     return { message: 'Produto removido com sucesso' };
   }
 
@@ -338,5 +341,16 @@ export class ProductService {
       })
       .lean()
       .exec();
+  }
+
+  private async publishEvent(restaurantId: string, type: string, payload: any): Promise<void> {
+    try {
+      await this.redisService.publish(
+        `realtime:${restaurantId}`,
+        JSON.stringify({ type, payload }),
+      );
+    } catch (err) {
+      this.logger.error(`Failed to publish realtime event ${type}: ${(err as Error).message}`);
+    }
   }
 }

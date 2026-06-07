@@ -120,7 +120,6 @@ export class AuthService {
       .findOne({
         userId: new Types.ObjectId(userId),
         restaurantId: new Types.ObjectId(restaurantId),
-        status: 'active',
       })
       .populate('restaurantId')
       .exec()) as unknown as RestaurantLink | null;
@@ -128,7 +127,10 @@ export class AuthService {
     if (!link?.restaurantId) {
       throw new UnauthorizedException('Você não tem acesso a este restaurante');
     }
-    if (link.restaurantId.status !== 'active') {
+
+    // OWNER pode acessar restaurantes suspensos (para reativá-los)
+    // Demais roles precisam de restaurante ativo
+    if (link.role !== UserRole.OWNER && link.restaurantId.status !== 'active') {
       throw new UnauthorizedException(
         'Este restaurante está inativo ou suspenso',
       );
@@ -200,8 +202,11 @@ export class AuthService {
    * Reutiliza a mesma query que o método login() faz.
    */
   async getUserProfile(userId: string) {
+    // Retorna TODOS os vínculos, inclusive de restaurantes suspensos,
+    // para que o frontend possa exibir e permitir reativação.
+    // O frontend já trata restaurantes suspensos com badge e botão "Reativar".
     const userLinks = (await this.userRestaurantModel
-      .find({ userId: new Types.ObjectId(userId), status: 'active' })
+      .find({ userId: new Types.ObjectId(userId) })
       .populate('restaurantId')
       .exec()) as unknown as RestaurantLink[];
 

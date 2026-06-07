@@ -74,7 +74,7 @@ export class SupplierService {
       .exec();
     if (existingName) {
       throw new ConflictException(
-        `Já existe um fornecedor com o nome "${name}" neste restaurante.`,
+        `Já existe um fornecedor com esse nome neste restaurante.`,
       );
     }
 
@@ -84,7 +84,7 @@ export class SupplierService {
       .exec();
     if (existingCnpj) {
       throw new ConflictException(
-        `Já existe um fornecedor com o CNPJ "${createSupplierDto.cnpj}" neste restaurante.`,
+        `Já existe um fornecedor com esse CNPJ neste restaurante.`,
       );
     }
 
@@ -166,7 +166,7 @@ export class SupplierService {
 
       if (duplicate) {
         throw new ConflictException(
-          `Já existe outro fornecedor com o nome "${updateData.name}" neste restaurante.`,
+          `Já existe outro fornecedor com esse nome neste restaurante.`,
         );
       }
     }
@@ -183,7 +183,7 @@ export class SupplierService {
 
       if (duplicateCnpj) {
         throw new ConflictException(
-          `Já existe outro fornecedor com o CNPJ "${updateData.cnpj}" neste restaurante.`,
+          `Já existe outro fornecedor com esse CNPJ neste restaurante.`,
         );
       }
     }

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { MongooseModule } from '@nestjs/mongoose';
-import { AuditModule } from '@app/common';
+import { AuditModule, JwtAuthModule } from '@app/common';
 import { StockService } from './stock.service';
 import { StockController } from './stock.controller';
 import { Stock, StockSchema } from './stock.schema';
@@ -19,6 +19,7 @@ import * as https from 'https';
     }),
     SupplierModule,
     AuditModule,
+    JwtAuthModule,
   ],
   controllers: [StockController],
   providers: [StockService],

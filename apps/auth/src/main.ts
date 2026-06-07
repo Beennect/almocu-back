@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -38,6 +39,9 @@ async function bootstrap() {
   app.use(helmet());
 
   app.use(cookieParser());
+
+  // Configura Socket.io adapter para WebSocket
+  app.useWebSocketAdapter(new IoAdapter(app));
 
   // Habilita validação global (opcional, mas recomendado)
   app.useGlobalPipes(

@@ -8,7 +8,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Order } from './order.schema';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { Pageable, Page } from '@app/common';
+import { Pageable, Page, RedisService } from '@app/common';
 
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
@@ -18,10 +18,14 @@ import { firstValueFrom, timeout } from 'rxjs';
 export class OrderService {
   private readonly logger = new Logger(OrderService.name);
 
+  private readonly realtimeChannel = (restaurantId: string) =>
+    `realtime:${restaurantId}`;
+
   constructor(
     @InjectModel(Order.name) private orderModel: Model<Order>,
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    private readonly redisService: RedisService,
   ) {}
 
   async create(
@@ -287,6 +291,9 @@ export class OrderService {
         }
       }
 
+      // Emite evento de tempo real
+      this.publishEvent(restaurantId, 'order:created', order);
+
       return order;
     } catch (error: unknown) {
       if (error instanceof BadRequestException) {
@@ -403,17 +410,25 @@ export class OrderService {
     userId: string,
     pageable: Pageable,
     role?: string,
+    restaurantId?: string,
   ): Promise<Page<Order>> {
     let filter: Record<string, any>;
 
     if (role === 'DELIVERY') {
-      // DELIVERY vê pedidos atribuídos a ele OU (PRONTO + não atribuídos)
+      if (!restaurantId) {
+        throw new BadRequestException('restaurantId é obrigatório');
+      }
+      // DELIVERY vê pedidos do restaurante:
+      // - atribuídos a ele, OU
+      // - PRONTO com deliveryAddress e NÃO atribuídos a ninguém (disponíveis)
       filter = {
+        restaurantId: new Types.ObjectId(restaurantId),
         $or: [
           { deliveryUserId: new Types.ObjectId(userId) },
           {
             status: 'pronto',
             deliveryAddress: { $exists: true, $ne: null },
+            deliveryUserId: { $exists: false },
           },
         ],
       };
@@ -457,6 +472,7 @@ export class OrderService {
       KITCHEN: ['em_preparo', 'pronto'],
       DELIVERY: ['saiu_para_entrega', 'entregue'],
       CASHIER: ['pronto', 'entregue'],
+      WAITER: ['pronto', 'entregue'],
       OWNER: [
         'em_preparo',
         'pronto',
@@ -527,6 +543,30 @@ export class OrderService {
         { from: 'em_preparo', to: 'pronto' },
         { from: 'pronto', to: 'entregue' },
       ]);
+    } else if (role === 'WAITER') {
+      await validateTransition([
+        { from: 'pronto', to: 'entregue' },
+        { from: 'em_preparo', to: 'pronto' },
+      ]);
+      // Apenas pedidos de balcão (sem endereço de entrega)
+      const waiterOrder = await this.orderModel.findOne({
+        _id: orderId,
+        restaurantId: restId,
+      }).exec();
+      if (!waiterOrder) {
+        throw new NotFoundException('Pedido não encontrado');
+      }
+      if (waiterOrder.deliveryAddress || waiterOrder.deliveryUserId) {
+        throw new BadRequestException(
+          'Garçom só pode finalizar pedidos de balcão',
+        );
+      }
+      // Apenas pedidos criados pelo próprio garçom
+      if (waiterOrder.userId.toString() !== userId) {
+        throw new BadRequestException(
+          'Você só pode finalizar seus próprios pedidos',
+        );
+      }
     } else if (role === 'DELIVERY') {
       await validateTransition([
         { from: 'pronto', to: 'saiu_para_entrega' },
@@ -563,6 +603,7 @@ export class OrderService {
             'Este pedido não está mais disponível para entrega',
           );
         }
+        this.publishEvent(restaurantId, 'order:statusChanged', updated);
         return updated;
       }
       // SAIU_PARA_ENTREGA → ENTREGUE (sem lock necessário)
@@ -586,6 +627,7 @@ export class OrderService {
       throw new NotFoundException('Pedido não encontrado');
     }
 
+    this.publishEvent(restaurantId, 'order:statusChanged', updated);
     return updated;
   }
 
@@ -605,5 +647,15 @@ export class OrderService {
     if (result.deletedCount === 0) {
       throw new NotFoundException('Pedido não encontrado');
     }
+
+    this.publishEvent(restaurantId, 'order:canceled', { id });
+  }
+
+  private async publishEvent(restaurantId: string, type: string, payload: any): Promise<void> {
+    const channel = this.realtimeChannel(restaurantId);
+    const message = JSON.stringify({ type, payload });
+    await this.redisService.publish(channel, message).catch((err) => {
+      this.logger.error(`Failed to publish event ${type}: ${(err as Error).message}`);
+    });
   }
 }

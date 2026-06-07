@@ -157,6 +157,12 @@ export class InternalStockController {
       );
     }
 
+    // 5. Publica evento de real-time para notificar frontends
+    this.stockService.publishEvent(restaurantId, 'stock:changed', {
+      action: 'batch_adjust',
+      items: merged,
+    });
+
     return { adjusted: expected };
   }
 }

@@ -10,6 +10,7 @@ import { ProxyMiddleware } from './common/middlewares/proxy.middleware';
 import { RedisModule } from './redis/redis.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { RealtimeModule } from './realtime/realtime.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { APP_GUARD } from '@nestjs/core';
       },
     }),
     RedisModule,
+    RealtimeModule,
     AuthModule,
     UsersModule,
     RestaurantsModule,

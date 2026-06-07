@@ -103,6 +103,7 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY}
       - MONGODB_URI=mongodb://mongodb:27017/almocu_order
+      - REDIS_URI=redis://redis:6379
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
     depends_on:
       mongodb:

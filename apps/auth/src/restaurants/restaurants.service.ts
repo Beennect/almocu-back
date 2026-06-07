@@ -21,7 +21,7 @@ import {
   UserRestaurant,
   UserRestaurantDocument,
 } from '../users/user-restaurant.schema';
-import { UserRole } from '@app/common';
+import { UserRole, getRoleRank } from '@app/common';
 import { RedisService } from '../redis/redis.service';
 import {
   generateTotpSecret,
@@ -53,14 +53,14 @@ export class RestaurantsService {
     const existingByName = await this.restaurantModel.findOne({ name }).exec();
     if (existingByName) {
       throw new ConflictException(
-        `Já existe um restaurante com o nome "${name}".`,
+        `Já existe um restaurante com esse nome".`,
       );
     }
 
     const existingByCnpj = await this.restaurantModel.findOne({ cnpj }).exec();
     if (existingByCnpj) {
       throw new ConflictException(
-        `Já existe um restaurante com o CNPJ "${cnpj}".`,
+        `Já existe um restaurante com esse CNPJ.`,
       );
     }
 
@@ -155,7 +155,7 @@ export class RestaurantsService {
         )
         .exec();
       throw new ConflictException(
-        `Já existe uma filial com o nome "${name}" neste restaurante.`,
+        `Já existe uma filial com esse nome neste restaurante.`,
       );
     }
 
@@ -184,7 +184,7 @@ export class RestaurantsService {
       // Se for erro de duplicidade (E11000), relançar como Conflict
       if (err?.code === 11000) {
         throw new ConflictException(
-          `Já existe uma filial com o nome "${name}" neste restaurante.`,
+          `Já existe uma filial com esse nome neste restaurante.`,
         );
       }
       throw err;
@@ -377,8 +377,12 @@ export class RestaurantsService {
       );
     }
 
+    // Exclui OWNER da listagem — ele não é "apenas gerente", sim proprietário
     return this.userRestaurantModel
-      .find({ restaurantId: new Types.ObjectId(restaurantId) })
+      .find({
+        restaurantId: new Types.ObjectId(restaurantId),
+        role: { $ne: UserRole.OWNER },
+      })
       .skip(pageable.skip)
       .limit(pageable.limit)
       .populate('userId', 'name email username')
@@ -417,6 +421,29 @@ export class RestaurantsService {
       throw new NotFoundException('Vínculo de funcionário não encontrado');
     }
 
+    const requesterRank = getRoleRank(requester.role);
+    const targetRank = getRoleRank(link.role);
+    const newRoleRank = getRoleRank(newRole);
+
+    // MANAGER não pode alterar cargo de OWNER ou outro MANAGER
+    if (targetRank >= requesterRank && requester.role !== UserRole.OWNER) {
+      throw new ForbiddenException(
+        'Você não tem permissão para alterar o cargo deste usuário',
+      );
+    }
+
+    // Ninguém pode alterar o próprio cargo
+    if (targetUserId === userId) {
+      throw new BadRequestException('Você não pode alterar seu próprio cargo');
+    }
+
+    // MANAGER não pode promover ninguém a OWNER ou MANAGER
+    if (requester.role === UserRole.MANAGER && newRoleRank >= requesterRank) {
+      throw new ForbiddenException(
+        'Gerentes não podem promover para gerente ou proprietário',
+      );
+    }
+
     link.role = newRole;
     return link.save();
   }
@@ -441,21 +468,42 @@ export class RestaurantsService {
       );
     }
 
-    const result = await this.userRestaurantModel
-      .deleteOne({
+    // Busca o vínculo do alvo para validar hierarquia
+    const targetLink = await this.userRestaurantModel
+      .findOne({
         restaurantId: new Types.ObjectId(restaurantId),
         userId: new Types.ObjectId(targetUserId),
       })
       .exec();
 
-    if (result.deletedCount === 0) {
+    if (!targetLink) {
       throw new NotFoundException('Vínculo de funcionário não encontrado');
     }
+
+    // MANAGER não pode remover OWNER nem outro MANAGER
+    if (requester.role === UserRole.MANAGER) {
+      const targetRank = getRoleRank(targetLink.role);
+      const managerRank = getRoleRank(UserRole.MANAGER);
+      if (targetRank >= managerRank) {
+        throw new ForbiddenException(
+          'Gerentes não podem remover outros gerentes ou o proprietário',
+        );
+      }
+    }
+
+    await this.userRestaurantModel
+      .deleteOne({
+        restaurantId: new Types.ObjectId(restaurantId),
+        userId: new Types.ObjectId(targetUserId),
+      })
+      .exec();
   }
 
   async findUserRestaurants(userId: string): Promise<any[]> {
+    // Retorna todos os vínculos do usuário (inclusive de restaurantes suspensos/inativos),
+    // para que o frontend possa exibir restaurantes suspensos e permitir reativação.
     return this.userRestaurantModel
-      .find({ userId: new Types.ObjectId(userId), status: 'active' })
+      .find({ userId: new Types.ObjectId(userId) })
       .populate('restaurantId')
       .exec();
   }

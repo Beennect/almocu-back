@@ -9,7 +9,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Stock, StockDocument } from './stock.schema';
 import { CreateStockDto, UpdateStockDto } from './dto/stock.dto';
-import { Pageable, Page } from '@app/common';
+import { Pageable, Page, RedisService } from '@app/common';
 import { SupplierService } from '../supplier/supplier.service';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
@@ -24,6 +24,7 @@ export class StockService {
     private readonly supplierService: SupplierService,
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    private readonly redisService: RedisService,
   ) {}
 
   async create(
@@ -45,7 +46,9 @@ export class StockService {
         brand,
         restaurantId,
       });
-      return await created.save();
+      const saved = await created.save();
+      this.publishEvent(restaurantId, 'stock:changed', { action: 'create', item: saved });
+      return saved;
     } catch (error: any) {
       if (error?.code === 11000) {
         throw new ConflictException(`O item "${name}" já existe nesta filial.`);
@@ -127,6 +130,7 @@ export class StockService {
       throw new NotFoundException('Item de estoque não encontrado.');
     }
 
+    this.publishEvent(restaurantId, 'stock:changed', { action: 'update', item: updated });
     return updated;
   }
 
@@ -164,6 +168,7 @@ export class StockService {
       throw new NotFoundException('Item de estoque não encontrado.');
     }
 
+    this.publishEvent(restaurantId, 'stock:changed', { action: 'adjust', item: updated });
     return updated;
   }
 
@@ -222,6 +227,19 @@ export class StockService {
         `Falha ao remover ingrediente ${id} dos produtos (status=${status}). ` +
           `Item de estoque já foi excluído.`,
       );
+    }
+
+    this.publishEvent(restaurantId, 'stock:changed', { action: 'remove', id });
+  }
+
+  async publishEvent(restaurantId: string, type: string, payload: any): Promise<void> {
+    try {
+      await this.redisService.publish(
+        `realtime:${restaurantId}`,
+        JSON.stringify({ type, payload }),
+      );
+    } catch (err) {
+      this.logger.error(`Failed to publish realtime event ${type}: ${(err as Error).message}`);
     }
   }
 

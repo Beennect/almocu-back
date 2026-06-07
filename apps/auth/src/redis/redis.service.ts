@@ -43,4 +43,9 @@ export class RedisService implements OnModuleDestroy {
     const result = await this.get(`blacklist:${token}`);
     return result === 'true';
   }
+
+  /** Publica uma mensagem em um canal Redis (real-time cross-service) */
+  async publish(channel: string, message: string): Promise<void> {
+    await this.redisClient.publish(channel, message);
+  }
 }

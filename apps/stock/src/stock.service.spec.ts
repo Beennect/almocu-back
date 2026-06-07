@@ -6,7 +6,7 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { getModelToken } from '@nestjs/mongoose';
 import { Stock } from './stock/stock.schema';
-import { Pageable } from '@app/common';
+import { Pageable, RedisService } from '@app/common';
 import { of, throwError } from 'rxjs';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AxiosError } from 'axios';
@@ -60,6 +60,10 @@ describe('StockService', () => {
     getOrThrow: mock(() => 'test-internal-key'),
   };
 
+  const mockRedisService = {
+    publish: mock(() => Promise.resolve()),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -79,6 +83,10 @@ describe('StockService', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: RedisService,
+          useValue: mockRedisService,
         },
       ],
     }).compile();

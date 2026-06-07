@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { HttpModule } from '@nestjs/axios';
+import { JwtAuthModule } from '@app/common';
 import { OrderService } from './order.service';
 import { OrderController } from './order.controller';
 import { Order, OrderSchema } from './order.schema';
@@ -15,6 +16,7 @@ import * as https from 'https';
       httpAgent: new http.Agent({ keepAlive: true, keepAliveMsecs: 30000 }),
       httpsAgent: new https.Agent({ keepAlive: true, keepAliveMsecs: 30000 }),
     }),
+    JwtAuthModule,
   ],
 
   controllers: [OrderController],

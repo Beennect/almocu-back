@@ -91,4 +91,16 @@ export class RedisService implements OnModuleDestroy {
       return 0;
     }
   }
+
+  /** Publica uma mensagem em um canal Redis (útil para real-time cross-service) */
+  async publish(channel: string, message: string): Promise<void> {
+    try {
+      await this.redisClient.publish(channel, message);
+    } catch (error) {
+      this.logger.error(
+        `Redis PUBLISH error on channel ${channel}`,
+        (error as Error).message,
+      );
+    }
+  }
 }
