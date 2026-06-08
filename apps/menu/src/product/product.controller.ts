@@ -50,7 +50,7 @@ const IMAGE_MIMETYPES = [
   'image/gif',
   'image/webp',
 ];
-const UPLOADS_DIR = join(__dirname, '..', '..', '..', 'uploads', 'products');
+const UPLOADS_DIR = join(__dirname, '..', '..', '..', '..', 'uploads', 'products');
 
 @ApiTags('products')
 @ApiBearerAuth()

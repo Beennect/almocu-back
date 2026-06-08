@@ -22,13 +22,20 @@ async function bootstrap() {
     logger.log(`Pasta de uploads criada: ${uploadsDir}`);
   }
 
+  // Security headers — deve vir ANTES do useStaticAssets para aplicar em arquivos estáticos
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
+
   // Servir arquivos estáticos (uploads de imagens)
   app.useStaticAssets(join(__dirname, '..', '..', '..', 'uploads'), {
     prefix: '/uploads',
+    setHeaders: (res) => {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    },
   });
-
-  // Security headers
-  app.use(helmet());
 
   // CORS para desenvolvimento
   if (process.env.NODE_ENV !== 'production') {

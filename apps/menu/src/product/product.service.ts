@@ -30,7 +30,7 @@ export class ProductService {
     private readonly redisService: RedisService,
   ) {}
 
-  private readonly uploadsDir = join(__dirname, '..', '..', '..', 'uploads', 'products');
+  private readonly uploadsDir = join(__dirname, '..', '..', '..', '..', 'uploads', 'products');
 
   private async invalidateCache(restaurantId: string): Promise<void> {
     await this.redisService.incr(`products:cache:version:${restaurantId}`);
