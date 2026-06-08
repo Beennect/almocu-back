@@ -4,8 +4,6 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -15,27 +13,12 @@ async function bootstrap() {
   // Aumenta o limite do body parser para aceitar base64 de imagens (~10MB)
   app.useBodyParser('json', { limit: '10mb' });
 
-  // Cria a pasta de uploads se não existir
-  const uploadsDir = join(__dirname, '..', '..', '..', 'uploads', 'products');
-  if (!existsSync(uploadsDir)) {
-    mkdirSync(uploadsDir, { recursive: true });
-    logger.log(`Pasta de uploads criada: ${uploadsDir}`);
-  }
-
-  // Security headers — deve vir ANTES do useStaticAssets para aplicar em arquivos estáticos
+  // Security headers
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
-
-  // Servir arquivos estáticos (uploads de imagens)
-  app.useStaticAssets(join(__dirname, '..', '..', '..', 'uploads'), {
-    prefix: '/uploads',
-    setHeaders: (res) => {
-      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    },
-  });
 
   // CORS para desenvolvimento
   if (process.env.NODE_ENV !== 'production') {

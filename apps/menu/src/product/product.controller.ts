@@ -9,12 +9,10 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
-  Req,
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { memoryStorage } from 'multer';
 import { ConfigService } from '@nestjs/config';
 import { ProductService } from './product.service';
 import {
@@ -50,7 +48,6 @@ const IMAGE_MIMETYPES = [
   'image/gif',
   'image/webp',
 ];
-const UPLOADS_DIR = join(__dirname, '..', '..', '..', '..', 'uploads', 'products');
 
 @ApiTags('products')
 @ApiBearerAuth()
@@ -154,16 +151,8 @@ export class ProductController {
   @Roles('OWNER', 'MANAGER')
   @UseInterceptors(
     FileInterceptor('image', {
-      storage: diskStorage({
-        destination: UPLOADS_DIR,
-        filename: (_req, file, callback) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = extname(file.originalname).toLowerCase();
-          callback(null, `${uniqueSuffix}${ext}`);
-        },
-      }),
-      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: (_req, file, callback) => {
         if (IMAGE_MIMETYPES.includes(file.mimetype)) {
           callback(null, true);
@@ -188,8 +177,12 @@ export class ProductController {
       throw new BadRequestException('Nenhum arquivo enviado.');
     }
 
-    const imageUrl = `/uploads/products/${file.filename}`;
-    return this.productService.updateImage(id, restaurantId, imageUrl);
+    return this.productService.updateImage(id, restaurantId, {
+      buffer: file.buffer,
+      mimetype: file.mimetype,
+      originalname: file.originalname,
+      size: file.size,
+    });
   }
 
   @Post('batch')

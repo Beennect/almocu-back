@@ -8,16 +8,12 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Product } from './product.schema';
+import { ProductImageService } from './product-image.service';
 import { Pageable, Page, RedisService } from '@app/common';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom, timeout } from 'rxjs';
-import { writeFile, existsSync, mkdirSync } from 'fs';
-import { join } from 'path';
-import { promisify } from 'util';
-
-const writeFileAsync = promisify(writeFile);
 
 @Injectable()
 export class ProductService {
@@ -25,45 +21,24 @@ export class ProductService {
 
   constructor(
     @InjectModel(Product.name) private productModel: Model<Product>,
+    private readonly productImageService: ProductImageService,
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
   ) {}
 
-  private readonly uploadsDir = join(__dirname, '..', '..', '..', '..', 'uploads', 'products');
-
   private async invalidateCache(restaurantId: string): Promise<void> {
     await this.redisService.incr(`products:cache:version:${restaurantId}`);
   }
 
-  /**
-   * Decodifica uma imagem base64 e salva no disco.
-   * Retorna a URL pública ou null se não houver imagem.
-   */
-  private async saveBase64Image(base64?: string): Promise<string | null> {
+  private async saveBase64Image(
+    productId: string,
+    base64?: string,
+  ): Promise<string | null> {
     if (!base64) return null;
 
-    const matches = base64.match(/^data:image\/(\w+);base64,(.+)$/);
-    if (!matches) {
-      throw new BadRequestException(
-        'Formato inválido. Use data:image/{ext};base64,...',
-      );
-    }
-
-    const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
-    const data = matches[2];
-    const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
-    const filepath = join(this.uploadsDir, `${filename}`);
-
-    // Garante que a pasta existe
-    if (!existsSync(this.uploadsDir)) {
-      mkdirSync(this.uploadsDir, { recursive: true });
-    }
-
-    await writeFileAsync(filepath, data, 'base64');
-    this.logger.log(`Imagem salva: ${filepath}`);
-
-    return `/uploads/products/${filename}`;
+    await this.productImageService.saveFromBase64(productId, base64);
+    return `/uploads/products/${productId}/image`;
   }
 
   private async validateStockItem(
@@ -148,30 +123,28 @@ export class ProductService {
     createProductDto: CreateProductDto,
     restaurantId: string,
   ) {
-    // Valida TODOS os ingredientes em uma única chamada batch
     const ingredientIds =
       createProductDto.ingredients?.map((ing) => ing.stockProductId) || [];
     if (ingredientIds.length > 0) {
       await this.validateStockItems(ingredientIds, restaurantId);
     }
 
-    // Extrai imageBase64 e processa a imagem
     const { imageBase64, ...dto } = createProductDto;
-    const imageUrl = await this.saveBase64Image(imageBase64);
 
     try {
-      const newProduct = new this.productModel({
-        ...dto,
-        ...(imageUrl ? { imageUrl } : {}),
-        restaurantId,
-      });
+      const newProduct = new this.productModel({ ...dto, restaurantId });
       const saved = await newProduct.save();
+
+      if (imageBase64) {
+        const imageUrl = await this.saveBase64Image(saved._id.toString(), imageBase64);
+        await this.productModel.findByIdAndUpdate(saved._id, { $set: { imageUrl } });
+        (saved as any).imageUrl = imageUrl;
+      }
+
       try {
         await this.invalidateCache(restaurantId);
       } catch (cacheError) {
-        this.logger.error(
-          `Falha ao invalidar cache: ${cacheError}`,
-        );
+        this.logger.error(`Falha ao invalidar cache: ${cacheError}`);
       }
       this.publishEvent(restaurantId, 'menu:changed', { action: 'create', item: saved });
       return saved;
@@ -237,9 +210,8 @@ export class ProductService {
       await this.validateStockItems(ingredientIds, restaurantId);
     }
 
-    // Extrai imageBase64 e processa a imagem
     const { imageBase64, ...dto } = updateProductDto;
-    const imageUrl = await this.saveBase64Image(imageBase64);
+    const imageUrl = await this.saveBase64Image(id, imageBase64);
 
     const updateData: Record<string, any> = { ...dto };
     if (imageUrl) {
@@ -266,6 +238,7 @@ export class ProductService {
       .exec();
     if (!deleted) throw new NotFoundException('Produto não encontrado.');
 
+    await this.productImageService.deleteByProductId(id);
     await this.invalidateCache(restaurantId);
     this.publishEvent(restaurantId, 'menu:changed', { action: 'remove', id });
     return { message: 'Produto removido com sucesso' };
@@ -274,8 +247,11 @@ export class ProductService {
   async updateImage(
     id: string,
     restaurantId: string,
-    imageUrl: string,
+    file: { buffer: Buffer; mimetype: string; originalname: string; size: number },
   ) {
+    await this.productImageService.save(id, file);
+
+    const imageUrl = `/uploads/products/${id}/image`;
     const updated = await this.productModel
       .findOneAndUpdate(
         { _id: id, restaurantId },
@@ -289,6 +265,12 @@ export class ProductService {
 
     await this.invalidateCache(restaurantId);
     return updated;
+  }
+
+  async getImageData(productId: string) {
+    const image = await this.productImageService.findByProductId(productId);
+    if (!image) throw new NotFoundException('Imagem não encontrada.');
+    return image;
   }
 
   /**
