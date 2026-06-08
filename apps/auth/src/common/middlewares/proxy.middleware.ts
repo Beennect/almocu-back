@@ -143,8 +143,10 @@ export class ProxyMiddleware implements NestMiddleware {
       // Se for a spec do Swagger, encaminhamos direto para o /api-json do microserviço
       if (!isSwaggerJson) {
         if (route === '/api/stock') {
-          // Stock items em /stock/*, fornecedores em /suppliers/* (mesmo app)
-          if (!newUrl.startsWith('/suppliers')) {
+          // Stock items em /stock/*, fornecedores em /suppliers/*, nfe em /nfe/* (mesmo app)
+          if (newUrl.startsWith('/nfe')) {
+            // NF-e routes já estão no path correto
+          } else if (!newUrl.startsWith('/suppliers')) {
             newUrl = '/stock' + newUrl;
           }
         } else if (route === '/api/menu') {

@@ -7,7 +7,14 @@ import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { Stock, StockDocument } from '../stock/stock.schema';
 import { SupplierService } from '../supplier/supplier.service';
-import { NfeProcess, NfeDet, NfeUploadResult } from './nfe.types';
+import {
+  NfeProcess,
+  NfeDet,
+  NfeUploadResult,
+  NfeInvoiceItem,
+} from './nfe.types';
+import { NfeInvoice, NfeInvoiceDocument } from './schemas/nfe-invoice.schema';
+import { Pageable, Page } from '@app/common';
 
 interface BrasilApiResponse {
   cnpj: string;
@@ -33,6 +40,8 @@ export class NfeService {
 
   constructor(
     @InjectModel(Stock.name) private readonly stockModel: Model<StockDocument>,
+    @InjectModel(NfeInvoice.name)
+    private readonly invoiceModel: Model<NfeInvoiceDocument>,
     private readonly supplierService: SupplierService,
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
@@ -42,7 +51,6 @@ export class NfeService {
       attributeNamePrefix: '@_',
       parseAttributeValue: true,
       trimValues: true,
-      // Mantém valores como string — evitamos que CNPJ, CEP, etc. virem número
       parseTagValue: false,
     });
     this.brasilApiUrl =
@@ -53,6 +61,7 @@ export class NfeService {
   async processXml(
     xmlBuffer: Buffer,
     restaurantId: string,
+    userId: string,
   ): Promise<NfeUploadResult> {
     const xmlString = xmlBuffer.toString('utf-8');
 
@@ -84,7 +93,6 @@ export class NfeService {
       const cleanCnpj = emitCnpj.trim();
 
       try {
-        // 1. Tenta encontrar fornecedor existente pelo CNPJ
         const found = await this.supplierService.findByCnpj(
           cleanCnpj,
           restaurantId,
@@ -93,7 +101,6 @@ export class NfeService {
         supplierObjectId = (found as any)._id?.toString();
         this.logger.log(`Fornecedor encontrado: ${found.name}`);
       } catch {
-        // 2. Não encontrou — tenta buscar na BrasilAPI e criar automaticamente
         this.logger.log(
           `Fornecedor CNPJ ${cleanCnpj} não encontrado. Consultando BrasilAPI...`,
         );
@@ -113,7 +120,7 @@ export class NfeService {
       }
     }
 
-    // Normaliza det para array (pode ser objeto único se só 1 item)
+    // Normaliza det para array
     const dets: NfeDet[] = Array.isArray(infNFe.det)
       ? infNFe.det
       : [infNFe.det];
@@ -124,12 +131,15 @@ export class NfeService {
       updated: 0,
       errors: [] as string[],
     };
+    const invoiceItems: NfeInvoiceItem[] = [];
 
     for (const det of dets) {
       const prod = det.prod;
       const name = prod.xProd.trim();
       const unit = prod.uCom.trim();
       const quantity = Number(prod.qCom);
+      const unitPrice = Number(prod.vUnCom);
+      const totalPrice = prod.vProd ? Number(prod.vProd) : quantity * unitPrice;
 
       if (!name) {
         summary.errors.push('Item ignorado: nome vazio.');
@@ -150,21 +160,27 @@ export class NfeService {
         continue;
       }
 
+      // Adiciona ao array de itens da nota (para o histórico)
+      invoiceItems.push({
+        name,
+        unit,
+        quantity,
+        unitPrice: Number.isNaN(unitPrice) ? 0 : unitPrice,
+        totalPrice: Number.isNaN(totalPrice) ? 0 : totalPrice,
+      });
+
       try {
-        // Busca por name + brand vazia + restaurantId (índice único)
         const existing = await this.stockModel
           .findOne({ name, brand: '', restaurantId })
           .exec();
 
         if (existing) {
-          // Item já existe — incrementa a quantidade
           await this.stockModel.updateOne(
             { _id: existing._id },
             { $inc: { quantity } },
           );
           summary.updated++;
         } else {
-          // Item novo — cria com os dados da NF-e
           await this.stockModel.create({
             name,
             brand: '',
@@ -177,9 +193,7 @@ export class NfeService {
           summary.created++;
         }
       } catch (error: any) {
-        // Erro 11000 = duplicate key (race condition rara)
         if (error?.code === 11000) {
-          // Tenta dar update — o item foi criado entre a busca e a criação
           try {
             await this.stockModel.updateOne(
               { name, brand: '', restaurantId },
@@ -201,13 +215,97 @@ export class NfeService {
       }
     }
 
-    return { supplier, summary };
+    // Extrai dados da nota fiscal
+    const ide = infNFe.ide;
+    const protInfo = parsed.nfeProc?.protNFe?.infProt;
+    const totalInfo = infNFe.total?.ICMSTot;
+
+    const accessKey =
+      protInfo?.chNFe || this.extractAccessKeyFromId((infNFe as any)['@_Id']);
+    const nProt = protInfo?.nProt;
+    const issueDate = ide?.dhEmi ? new Date(ide.dhEmi) : undefined;
+    const totalValue = totalInfo?.vNF
+      ? Number(totalInfo.vNF)
+      : invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
+
+    // Salva o registro da nota fiscal no histórico
+    let invoiceId: string;
+    try {
+      const invoice = await this.invoiceModel.create({
+        accessKey: accessKey || 'unknown',
+        nProt,
+        issueDate,
+        supplierName: emitNome?.trim(),
+        supplierCnpj: emitCnpj?.trim(),
+        supplierId: supplierObjectId,
+        totalValue,
+        items: invoiceItems,
+        restaurantId,
+        userId,
+      });
+      invoiceId = (invoice as any)._id.toString();
+      this.logger.log(`Nota fiscal salva no histórico: ${accessKey}`);
+    } catch (error: any) {
+      if (error?.code === 11000) {
+        this.logger.warn(
+          `Nota fiscal ${accessKey} já importada anteriormente.`,
+        );
+        const existing = await this.invoiceModel
+          .findOne({ accessKey })
+          .exec();
+        invoiceId = (existing as any)._id.toString();
+      } else {
+        this.logger.error(`Erro ao salvar nota fiscal: ${error.message}`);
+        invoiceId = 'unknown';
+      }
+    }
+
+    return { supplier, invoiceId, summary };
   }
 
-  /**
-   * Busca dados da empresa na BrasilAPI pelo CNPJ.
-   * https://brasilapi.com.br/docs#tag/CNPJ
-   */
+  async findAll(
+    restaurantId: string,
+    pageable: Pageable,
+  ): Promise<Page<NfeInvoice>> {
+    const [items, total] = await Promise.all([
+      this.invoiceModel
+        .find({ restaurantId })
+        .sort({ createdAt: -1 })
+        .skip(pageable.skip)
+        .limit(pageable.limit)
+        .lean()
+        .exec(),
+      this.invoiceModel.countDocuments({ restaurantId }).exec(),
+    ]);
+
+    return new Page(items, total, pageable);
+  }
+
+  async findOne(id: string, restaurantId: string): Promise<NfeInvoice> {
+    const invoice = await this.invoiceModel
+      .findOne({ _id: id, restaurantId })
+      .lean()
+      .exec();
+    if (!invoice) {
+      throw new BadRequestException('Nota fiscal não encontrada.');
+    }
+    return invoice;
+  }
+
+  async remove(id: string, restaurantId: string): Promise<void> {
+    const result = await this.invoiceModel
+      .deleteOne({ _id: id, restaurantId })
+      .exec();
+    if (result.deletedCount === 0) {
+      throw new BadRequestException('Nota fiscal não encontrada.');
+    }
+  }
+
+  private extractAccessKeyFromId(id: string | undefined): string | undefined {
+    if (!id) return undefined;
+    return id.startsWith('NFe') ? id.substring(3) : id;
+  }
+
   private async fetchCompanyByCnpj(
     cnpj: string,
   ): Promise<BrasilApiResponse | null> {
@@ -241,10 +339,6 @@ export class NfeService {
     }
   }
 
-  /**
-   * Cria automaticamente um fornecedor a partir dos dados da BrasilAPI.
-   * Retorna o ID do fornecedor criado, ou null se não for possível.
-   */
   private async autoCreateSupplier(
     cnpj: string,
     restaurantId: string,
@@ -261,9 +355,7 @@ export class NfeService {
       return null;
     }
 
-    // Verifica se já existe fornecedor com este nome (evita duplicidade)
     try {
-      // Tenta criar via SupplierService
       const created = await this.supplierService.create(
         {
           name,
@@ -289,8 +381,6 @@ export class NfeService {
       );
       return { id: (created as any)._id.toString(), name: created.name };
     } catch (error: any) {
-      // Se já existe fornecedor com o mesmo nome, tenta buscar pelo CNPJ novamente
-      // (pode ter sido criado em outra requisição concorrente)
       if (error.message?.includes('Já existe')) {
         try {
           const existing = await this.supplierService.findByCnpj(
