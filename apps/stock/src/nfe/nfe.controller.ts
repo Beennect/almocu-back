@@ -18,6 +18,10 @@ import {
   ApiBody,
   ApiQuery,
   ApiOkResponse,
+  ApiParam,
+  ApiBearerAuth,
+  ApiHeader,
+  ApiForbiddenResponse,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@app/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@app/common/guards/roles.guard';
@@ -31,6 +35,12 @@ import { NfeInvoicePageDto } from './dto/nfe-invoice-page.dto';
 import type { Request } from 'express';
 
 @ApiTags('nfe')
+@ApiBearerAuth()
+@ApiHeader({
+  name: 'x-restaurant-id',
+  description: 'ID do restaurante (contexto de tenancy)',
+  required: true,
+})
 @Controller('nfe')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('OWNER', 'MANAGER')
@@ -117,6 +127,14 @@ export class NfeController {
     summary: 'Detalhar uma nota fiscal',
     description: 'Retorna os dados completos de uma nota fiscal importada.',
   })
+  @ApiParam({
+    name: 'id',
+    required: true,
+    description: 'ID da nota fiscal',
+  })
+  @ApiOkResponse({
+    description: 'Dados completos da nota fiscal',
+  })
   async findOne(
     @Param('id') id: string,
     @RestaurantId() restaurantId: string,
@@ -130,6 +148,14 @@ export class NfeController {
     description:
       'Remove o registro da nota fiscal do histórico. ' +
       'ATENÇÃO: Isto não altera o estoque — os itens já foram adicionados.',
+  })
+  @ApiParam({
+    name: 'id',
+    required: true,
+    description: 'ID da nota fiscal',
+  })
+  @ApiOkResponse({
+    description: 'Nota fiscal removida com sucesso',
   })
   async remove(
     @Param('id') id: string,

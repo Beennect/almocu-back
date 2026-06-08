@@ -1,25 +1,7 @@
 export interface NfeProcess {
-  nfeProc: {
+  nfeProc?: {
     NFe: {
-      infNFe: {
-        ide?: {
-          dhEmi?: string;
-          nNF?: string;
-          serie?: string;
-        };
-        emit: {
-          CNPJ: string;
-          xNome: string;
-          xFant?: string;
-        };
-        det: NfeDet[] | NfeDet;
-        total?: {
-          ICMSTot?: {
-            vProd?: string;
-            vNF?: string;
-          };
-        };
-      };
+      infNFe: NfeInfNFe;
     };
     protNFe?: {
       infProt?: {
@@ -27,6 +9,29 @@ export interface NfeProcess {
         nProt?: string;
         dhRecbto?: string;
       };
+    };
+  };
+  NFe?: {
+    infNFe: NfeInfNFe;
+  };
+}
+
+interface NfeInfNFe {
+  ide?: {
+    dhEmi?: string;
+    nNF?: string;
+    serie?: string;
+  };
+  emit: {
+    CNPJ: string;
+    xNome: string;
+    xFant?: string;
+  };
+  det: NfeDet[] | NfeDet;
+  total?: {
+    ICMSTot?: {
+      vProd?: string;
+      vNF?: string;
     };
   };
 }

@@ -74,10 +74,11 @@ export class NfeService {
       );
     }
 
-    const infNFe = parsed?.nfeProc?.NFe?.infNFe;
+    const infNFe =
+      parsed?.nfeProc?.NFe?.infNFe ?? parsed?.NFe?.infNFe;
     if (!infNFe) {
       throw new BadRequestException(
-        'XML inválido: estrutura nfeProc/NFe/infNFe não encontrada.',
+        'XML inválido: estrutura nfeProc/NFe/infNFe (ou NFe/infNFe) não encontrada.',
       );
     }
 
