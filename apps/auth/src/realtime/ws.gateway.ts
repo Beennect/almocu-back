@@ -4,10 +4,11 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
+import { Logger, UnauthorizedException } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
+import { AuthService } from '../auth/auth.service';
 import { RedisSubscriberService } from './redis-subscriber.service';
 
 interface JwtPayload {
@@ -41,6 +42,7 @@ export class WsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private configService: ConfigService,
     private redisSubscriber: RedisSubscriberService,
+    private authService: AuthService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -63,13 +65,49 @@ export class WsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         algorithms: ['HS256'],
       }) as JwtPayload;
 
-      const restaurantId = payload.restaurantId;
+      // 1. Tenta restaurantId do handshake auth (enviado pelo frontend)
+      // 2. Fallback para o payload do JWT
+      // 3. Fallback para o primeiro restaurante ativo do usuário
+      let restaurantId = client.handshake.auth?.restaurantId || payload.restaurantId;
+      let role = payload.role;
+
+      if (restaurantId) {
+        try {
+          const link = await this.authService.validateUserRestaurantAccess(
+            payload.sub,
+            restaurantId,
+          );
+          role = (link as any).role || role;
+        } catch {
+          restaurantId = undefined;
+        }
+      }
+
+      if (!restaurantId) {
+        try {
+          const link = await this.authService.findFirstActiveRestaurant(payload.sub);
+          if (link) {
+            restaurantId = link.restaurantId.toString();
+            role = link.role;
+          }
+        } catch (err) {
+          this.logger.warn(
+            `Failed to find first active restaurant for ${payload.sub}: ${(err as Error).message}`,
+          );
+        }
+      }
+
       if (!restaurantId) {
         this.logger.warn(
-          `Client ${client.id} (${payload.sub}) has no restaurantId — disconnecting`,
+          `Client ${client.id} (${payload.sub}) has no active restaurant — connecting without room`,
         );
-        client.emit('error', { message: 'Nenhum restaurante vinculado' });
-        client.disconnect();
+        (client as any).user = {
+          id: payload.sub,
+          username: payload.username,
+          restaurantId: null,
+          role: null,
+        };
+        client.emit('connected', { message: 'Conectado sem restaurante ativo' });
         return;
       }
 
@@ -78,14 +116,14 @@ export class WsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         id: payload.sub,
         username: payload.username,
         restaurantId,
-        role: payload.role,
+        role,
       };
 
       // Entra na sala do restaurante
       const room = `restaurant:${restaurantId}`;
       await client.join(room);
       this.logger.log(
-        `Client ${client.id} (user:${payload.sub}) connected and joined ${room}`,
+        `Client ${client.id} (user:${payload.sub}) connected and joined ${room} as ${role}`,
       );
 
       // Inscreve nos canais Redis deste restaurante (apenas uma vez globalmente)
@@ -118,7 +156,7 @@ export class WsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleDisconnect(client: Socket) {
     const user = (client as any).user;
-    if (user) {
+    if (user && user.restaurantId) {
       this.logger.log(
         `Client ${client.id} (user:${user.id}) disconnected from restaurant:${user.restaurantId}`,
       );

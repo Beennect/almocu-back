@@ -91,6 +91,11 @@ export class RestaurantsService {
       status: 'active',
     });
 
+    this.publishEvent(savedRestaurant._id.toString(), 'staff:changed', {
+      action: 'create',
+      userId: ownerId,
+    });
+
     return savedRestaurant;
   }
 
@@ -349,12 +354,19 @@ export class RestaurantsService {
       throw new ConflictException('Você já faz parte deste restaurante');
     }
 
-    return this.userRestaurantModel.create({
+    const created = await this.userRestaurantModel.create({
       userId: new Types.ObjectId(userId),
       restaurantId: matchedRestaurant._id,
       role: UserRole.COMMON,
       status: 'active',
     });
+
+    this.publishEvent(matchedRestaurant._id.toString(), 'staff:changed', {
+      action: 'join',
+      userId,
+    });
+
+    return created;
   }
 
   async listStaff(
@@ -445,7 +457,15 @@ export class RestaurantsService {
     }
 
     link.role = newRole;
-    return link.save();
+    const saved = await link.save();
+
+    this.publishEvent(restaurantId, 'staff:changed', {
+      action: 'roleUpdate',
+      userId: targetUserId,
+      newRole,
+    });
+
+    return saved;
   }
 
   async removeStaff(
@@ -497,6 +517,11 @@ export class RestaurantsService {
         userId: new Types.ObjectId(targetUserId),
       })
       .exec();
+
+    this.publishEvent(restaurantId, 'staff:changed', {
+      action: 'remove',
+      userId: targetUserId,
+    });
   }
 
   async findUserRestaurants(userId: string): Promise<any[]> {
@@ -695,5 +720,22 @@ export class RestaurantsService {
     );
 
     return { message: 'Restaurante reativado com sucesso' };
+  }
+
+  private async publishEvent(
+    restaurantId: string,
+    type: string,
+    payload: any,
+  ): Promise<void> {
+    try {
+      await this.redisService.publish(
+        `realtime:${restaurantId}`,
+        JSON.stringify({ type, payload }),
+      );
+    } catch (err) {
+      this.logger.error(
+        `Failed to publish realtime event ${type}: ${(err as Error).message}`,
+      );
+    }
   }
 }

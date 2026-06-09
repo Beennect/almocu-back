@@ -139,6 +139,22 @@ export class AuthService {
     return link;
   }
 
+  async findFirstActiveRestaurant(userId: string) {
+    const link = (await this.userRestaurantModel
+      .findOne({
+        userId: new Types.ObjectId(userId),
+        status: 'active',
+      })
+      .populate('restaurantId')
+      .exec()) as unknown as RestaurantLink | null;
+
+    if (!link?.restaurantId || link.restaurantId.status !== 'active') {
+      return null;
+    }
+
+    return { restaurantId: link.restaurantId._id, role: link.role };
+  }
+
   async validateOAuthUser(profile: {
     googleId: string;
     email: string;
