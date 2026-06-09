@@ -60,16 +60,22 @@ export class StockService {
   async findAll(
     restaurantId: string,
     pageable: Pageable,
+    active?: 'true' | 'false' | 'all',
   ): Promise<Page<Stock>> {
+    const filter: Record<string, any> = { restaurantId };
+    if (active !== 'all') {
+      filter.isActive = active !== 'false';
+    }
+
     const [items, total] = await Promise.all([
       this.stockModel
-        .find({ restaurantId })
+        .find(filter)
         .sort({ name: 1 })
         .skip(pageable.skip)
         .limit(pageable.limit)
         .lean()
         .exec(),
-      this.stockModel.countDocuments({ restaurantId }).exec(),
+      this.stockModel.countDocuments(filter).exec(),
     ]);
 
     return new Page(items, total, pageable);
@@ -172,20 +178,12 @@ export class StockService {
     return updated;
   }
 
-  async remove(id: string, restaurantId: string): Promise<void> {
+  async remove(id: string, restaurantId: string): Promise<{ affectedProducts: any[] }> {
     this.validateObjectId(id);
     this.validateObjectId(restaurantId, 'RestaurantId');
 
-    // 1. Remove o item do estoque de forma atômica (evita TOCTOU)
-    const item = await this.stockModel
-      .findOneAndDelete({ _id: id, restaurantId })
-      .exec();
-
-    if (!item) {
-      throw new NotFoundException('Item de estoque não encontrado.');
-    }
-
-    // 2. Tenta remover o ingrediente de todos os produtos do cardápio (best-effort)
+    // 1. Busca os produtos afetados antes de desativar
+    let affectedProducts: any[] = [];
     try {
       const internalKey =
         this.configService.getOrThrow<string>('INTERNAL_API_KEY');
@@ -193,9 +191,9 @@ export class StockService {
         this.configService.get<string>('MENU_SERVICE_URL') ||
         'http://menu-app:3000';
 
-      await firstValueFrom(
-        this.httpService.delete(
-          `${menuServiceUrl}/products/internal/ingredient/${id}`,
+      const response = await firstValueFrom(
+        this.httpService.get(
+          `${menuServiceUrl}/products/internal/by-stock/${id}`,
           {
             headers: {
               'x-internal-key': internalKey,
@@ -205,31 +203,62 @@ export class StockService {
           },
         ),
       );
+      affectedProducts = response.data || [];
     } catch (error: any) {
-      const status = error.response?.status;
-
-      // 204 = ingrediente removido com sucesso, 404 = nenhum produto usava — ambos OK
-      if (status === 204 || status === 404) {
-        return;
-      }
-
-      // Network error (menu service indisponível) — log e continua
-      if (status === undefined) {
-        this.logger.warn(
-          `Menu service indisponível ao remover ingrediente ${id}. ` +
-            `Item de estoque já foi excluído. Erro: ${error.message}`,
-        );
-        return;
-      }
-
-      // Outro erro HTTP — log e continua (item já foi excluído)
-      this.logger.error(
-        `Falha ao remover ingrediente ${id} dos produtos (status=${status}). ` +
-          `Item de estoque já foi excluído.`,
+      // Se o menu estiver indisponível, loga e continua sem produtos afetados
+      this.logger.warn(
+        `Menu service indisponível ao buscar produtos afetados por ${id}: ${error.message}`,
       );
     }
 
-    this.publishEvent(restaurantId, 'stock:changed', { action: 'remove', id });
+    // 2. Armazena as relações atuais antes de desativar
+    const item = await this.stockModel
+      .findOne({ _id: id, restaurantId })
+      .exec();
+
+    if (!item) {
+      throw new NotFoundException('Item de estoque não encontrado.');
+    }
+
+    const previousRelations = affectedProducts.map((p: any) => {
+      const ingredient = (p.ingredients || []).find(
+        (i: any) => i.stockProductId?.toString() === id || i.stockProductId === id,
+      );
+      return {
+        productId: p._id,
+        productName: p.name,
+        quantity: ingredient?.quantity || 0,
+      };
+    });
+
+    // 3. Desativa o item (soft delete) e salva as relações anteriores
+    item.isActive = false;
+    item.previousProductRelations = previousRelations;
+    await item.save();
+
+    this.publishEvent(restaurantId, 'stock:changed', { action: 'deactivate', id, affectedProducts });
+
+    return { affectedProducts };
+  }
+
+  async reactivate(id: string, restaurantId: string): Promise<Stock> {
+    this.validateObjectId(id);
+    this.validateObjectId(restaurantId, 'RestaurantId');
+
+    const updated = await this.stockModel
+      .findOneAndUpdate(
+        { _id: id, restaurantId },
+        { $set: { isActive: true } },
+        { new: true },
+      )
+      .exec();
+
+    if (!updated) {
+      throw new NotFoundException('Item de estoque não encontrado.');
+    }
+
+    this.publishEvent(restaurantId, 'stock:changed', { action: 'reactivate', id });
+    return updated;
   }
 
   async publishEvent(restaurantId: string, type: string, payload: any): Promise<void> {

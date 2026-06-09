@@ -12,7 +12,7 @@ import { firstValueFrom } from 'rxjs';
 import { Supplier, SupplierDocument } from './supplier.schema';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
-import { Pageable, Page } from '@app/common';
+import { Pageable, Page, RedisService } from '@app/common';
 
 interface BrasilApiResponse {
   cnpj: string;
@@ -54,6 +54,7 @@ export class SupplierService {
     private readonly supplierModel: Model<SupplierDocument>,
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    private readonly redisService: RedisService,
   ) {
     this.brasilApiUrl =
       this.configService.get<string>('BRASIL_API_URL') ||
@@ -96,22 +97,48 @@ export class SupplierService {
       userId,
     });
 
-    return created.save();
+    const saved = await created.save();
+
+    await this.publishEvent(restaurantId, {
+      action: 'supplier_create',
+      supplier: saved,
+    });
+
+    return saved;
+  }
+
+  private async publishEvent(restaurantId: string, payload: any): Promise<void> {
+    try {
+      await this.redisService.publish(
+        `realtime:${restaurantId}`,
+        JSON.stringify({ type: 'stock:changed', payload }),
+      );
+    } catch (err) {
+      this.logger.error(
+        `Failed to publish realtime event: ${(err as Error).message}`,
+      );
+    }
   }
 
   async findAll(
     restaurantId: string,
     pageable: Pageable,
+    active?: 'true' | 'false' | 'all',
   ): Promise<Page<Supplier>> {
+    const filter: Record<string, any> = { restaurantId };
+    if (active !== 'all') {
+      filter.isActive = active !== 'false';
+    }
+
     const [items, total] = await Promise.all([
       this.supplierModel
-        .find({ restaurantId })
+        .find(filter)
         .sort({ name: 1 })
         .skip(pageable.skip)
         .limit(pageable.limit)
         .lean()
         .exec(),
-      this.supplierModel.countDocuments({ restaurantId }).exec(),
+      this.supplierModel.countDocuments(filter).exec(),
     ]);
 
     return new Page(items as unknown as Supplier[], total, pageable);
@@ -203,6 +230,11 @@ export class SupplierService {
       );
     }
 
+    await this.publishEvent(restaurantId, {
+      action: 'supplier_update',
+      supplier: updated,
+    });
+
     return updated as unknown as Supplier;
   }
 
@@ -223,25 +255,53 @@ export class SupplierService {
     return supplier as unknown as Supplier;
   }
 
-  async remove(id: string, restaurantId: string): Promise<void> {
-    // Verifica se existem itens de estoque vinculados a este fornecedor
+  async remove(id: string, restaurantId: string): Promise<{ linkedStockItems: number }> {
+    // Verifica quantos itens de estoque estão vinculados a este fornecedor
     const linkedCount = await this.supplierModel.db
       .collection('stock_items')
-      .countDocuments({ supplierId: id, restaurantId });
-
-    if (linkedCount > 0) {
-      throw new ConflictException(
-        `Este fornecedor possui ${linkedCount} item(s) de estoque.`,
-      );
-    }
+      .countDocuments({ supplierId: id, restaurantId, isActive: true });
 
     const result = await this.supplierModel
-      .deleteOne({ _id: id, restaurantId })
+      .findOneAndUpdate(
+        { _id: id, restaurantId },
+        { $set: { isActive: false } },
+        { new: true },
+      )
       .exec();
 
-    if (result.deletedCount === 0) {
+    if (!result) {
       throw new NotFoundException('Fornecedor não encontrado para remoção.');
     }
+
+    await this.publishEvent(restaurantId, {
+      action: 'supplier_deactivate',
+      id,
+      linkedStockItems: linkedCount,
+    });
+
+    return { linkedStockItems: linkedCount };
+  }
+
+  async reactivate(id: string, restaurantId: string): Promise<Supplier> {
+    const updated = await this.supplierModel
+      .findOneAndUpdate(
+        { _id: id, restaurantId },
+        { $set: { isActive: true } },
+        { new: true },
+      )
+      .lean()
+      .exec();
+
+    if (!updated) {
+      throw new NotFoundException('Fornecedor não encontrado para reativação.');
+    }
+
+    await this.publishEvent(restaurantId, {
+      action: 'supplier_reactivate',
+      id,
+    });
+
+    return updated as unknown as Supplier;
   }
 
   /**

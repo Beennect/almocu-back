@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Req,
+  Query,
 } from '@nestjs/common';
 import { StockService } from './stock.service';
 import {
@@ -93,6 +94,13 @@ export class StockController {
     description: 'Itens por página (padrão: 10, máximo: 100)',
     example: 10,
   })
+  @ApiQuery({
+    name: 'active',
+    required: false,
+    enum: ['true', 'false', 'all'],
+    description: 'Filtrar por ativos (true), inativos (false) ou todos (all). Padrão: true',
+    example: 'true',
+  })
   @ApiOkResponse({
     type: StockPageDto,
     description: 'Lista paginada de itens do estoque',
@@ -100,8 +108,9 @@ export class StockController {
   findAll(
     @RestaurantId() restaurantId: string,
     @PageableParams() pageable: Pageable,
+    @Query('active') active?: 'true' | 'false' | 'all',
   ) {
-    return this.stockService.findAll(restaurantId, pageable);
+    return this.stockService.findAll(restaurantId, pageable, active);
   }
 
   @Get(':id')
@@ -171,7 +180,7 @@ export class StockController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Remove um item do estoque' })
+  @ApiOperation({ summary: 'Desativa um item do estoque (soft delete)' })
   @Roles('OWNER', 'MANAGER')
   @ApiForbiddenResponse({ description: 'Apenas proprietários e gerentes' })
   async remove(
@@ -180,18 +189,43 @@ export class StockController {
     @Req() req: Request,
   ) {
     const previous = await this.stockService.findOne(id, restaurantId);
-    await this.stockService.remove(id, restaurantId);
+    const result = await this.stockService.remove(id, restaurantId);
     this.auditService.log({
       restaurantId,
       userId: (req.user as any)?.id || '',
       userName: (req.user as any)?.username || '',
       userRole: (req.headers['x-user-role'] as string) || '',
-      action: 'stock.delete',
+      action: 'stock.deactivate',
       entityType: 'stock',
       entityId: id,
       previousState: previous as any,
-      description: `Removeu item "${(previous as any).name}" do estoque`,
+      description: `Desativou item "${(previous as any).name}" do estoque`,
     });
+    return result;
+  }
+
+  @Patch(':id/reactivate')
+  @ApiOperation({ summary: 'Reativa um item de estoque desativado' })
+  @Roles('OWNER', 'MANAGER')
+  @ApiForbiddenResponse({ description: 'Apenas proprietários e gerentes' })
+  async reactivate(
+    @Param('id') id: string,
+    @RestaurantId() restaurantId: string,
+    @Req() req: Request,
+  ) {
+    const result = await this.stockService.reactivate(id, restaurantId);
+    this.auditService.log({
+      restaurantId,
+      userId: (req.user as any)?.id || '',
+      userName: (req.user as any)?.username || '',
+      userRole: (req.headers['x-user-role'] as string) || '',
+      action: 'stock.reactivate',
+      entityType: 'stock',
+      entityId: id,
+      newState: result as any,
+      description: `Reativou item "${(result as any).name}" no estoque`,
+    });
+    return result;
   }
 
   @Get('audit/history')

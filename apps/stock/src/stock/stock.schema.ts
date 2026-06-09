@@ -1,8 +1,22 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 import { ApiProperty } from '@nestjs/swagger';
 
 export type StockDocument = Stock & Document;
+
+@Schema({ _id: false })
+class PreviousProductRelation {
+  @Prop({ type: Types.ObjectId, required: true })
+  productId!: Types.ObjectId;
+
+  @Prop({ required: true })
+  productName!: string;
+
+  @Prop({ required: true, min: 0 })
+  quantity!: number;
+}
+
+const PreviousProductRelationSchema = SchemaFactory.createForClass(PreviousProductRelation);
 
 @Schema({
   timestamps: true,
@@ -56,6 +70,17 @@ export class Stock {
   })
   @Prop({ type: String })
   supplierId?: string;
+
+  @ApiProperty({ default: true, description: 'Se o item está ativo no estoque' })
+  @Prop({ default: true })
+  isActive!: boolean;
+
+  @ApiProperty({
+    description: 'Relações com produtos do cardápio antes da desativação (para reativação)',
+    required: false,
+  })
+  @Prop({ type: [PreviousProductRelationSchema], default: [] })
+  previousProductRelations?: PreviousProductRelation[];
 }
 
 export const StockSchema = SchemaFactory.createForClass(Stock);
@@ -66,3 +91,4 @@ StockSchema.virtual('lowStock').get(function (this: StockDocument) {
 
 // Índice único para evitar duplicados na mesma filial
 StockSchema.index({ name: 1, brand: 1, restaurantId: 1 }, { unique: true });
+StockSchema.index({ restaurantId: 1, isActive: 1 });

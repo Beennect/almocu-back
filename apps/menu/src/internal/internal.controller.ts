@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Delete,
   Param,
   HttpCode,
@@ -15,6 +16,26 @@ import { ProductService } from '../product/product.service';
 @Controller('products/internal')
 export class InternalProductController {
   constructor(private readonly productService: ProductService) {}
+
+  @Get('by-stock/:stockProductId')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: '[Interno] Retorna produtos que usam um determinado item de estoque',
+  })
+  @ApiHeader({
+    name: 'x-internal-key',
+    required: true,
+  })
+  @ApiHeader({
+    name: 'x-tenant-id',
+    required: true,
+  })
+  async findProductsByStockItem(
+    @Param('stockProductId') stockProductId: string,
+    @Headers('x-tenant-id') restaurantId: string,
+  ) {
+    return this.productService.findByStockProductId(stockProductId, restaurantId);
+  }
 
   /**
    * Remove um ingrediente de TODOS os produtos do restaurante.

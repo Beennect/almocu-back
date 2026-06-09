@@ -161,11 +161,17 @@ export class ProductService {
   async findAll(
     restaurantId: string,
     pageable: Pageable,
+    active?: 'true' | 'false' | 'all',
   ): Promise<Page<Product>> {
+    const filter: Record<string, any> = { restaurantId };
+    if (active !== 'all') {
+      filter.isActive = active !== 'false';
+    }
+
     const cacheVersion =
       (await this.redisService.get(`products:cache:version:${restaurantId}`)) ||
       '0';
-    const cacheKey = `products:${restaurantId}:v${cacheVersion}:page:${pageable.page}:limit:${pageable.limit}`;
+    const cacheKey = `products:${restaurantId}:v${cacheVersion}:active:${active || 'true'}:page:${pageable.page}:limit:${pageable.limit}`;
     const cached = await this.redisService.get(cacheKey);
 
     if (cached) {
@@ -174,13 +180,13 @@ export class ProductService {
 
     const [items, total] = await Promise.all([
       this.productModel
-        .find({ restaurantId })
+        .find(filter)
         .sort({ name: 1 })
         .skip(pageable.skip)
         .limit(pageable.limit)
         .lean()
         .exec(),
-      this.productModel.countDocuments({ restaurantId }).exec(),
+      this.productModel.countDocuments(filter).exec(),
     ]);
 
     const result = new Page(items as unknown as Product[], total, pageable);
@@ -233,15 +239,33 @@ export class ProductService {
   }
 
   async remove(id: string, restaurantId: string) {
-    const deleted = await this.productModel
-      .findOneAndDelete({ _id: id, restaurantId })
+    const updated = await this.productModel
+      .findOneAndUpdate(
+        { _id: id, restaurantId },
+        { $set: { isActive: false } },
+        { new: true },
+      )
       .exec();
-    if (!deleted) throw new NotFoundException('Produto não encontrado.');
+    if (!updated) throw new NotFoundException('Produto não encontrado.');
 
-    await this.productImageService.deleteByProductId(id);
     await this.invalidateCache(restaurantId);
-    this.publishEvent(restaurantId, 'menu:changed', { action: 'remove', id });
-    return { message: 'Produto removido com sucesso' };
+    this.publishEvent(restaurantId, 'menu:changed', { action: 'deactivate', id });
+    return { message: 'Produto desativado com sucesso' };
+  }
+
+  async reactivate(id: string, restaurantId: string) {
+    const updated = await this.productModel
+      .findOneAndUpdate(
+        { _id: id, restaurantId },
+        { $set: { isActive: true } },
+        { new: true },
+      )
+      .exec();
+    if (!updated) throw new NotFoundException('Produto não encontrado.');
+
+    await this.invalidateCache(restaurantId);
+    this.publishEvent(restaurantId, 'menu:changed', { action: 'reactivate', id });
+    return updated;
   }
 
   async updateImage(
@@ -313,6 +337,19 @@ export class ProductService {
     }
 
     return { modifiedCount: result.modifiedCount };
+  }
+
+  async findByStockProductId(stockProductId: string, restaurantId: string) {
+    const objectId = new Types.ObjectId(stockProductId);
+    return this.productModel
+      .find({
+        restaurantId,
+        'ingredients.stockProductId': objectId,
+        isActive: true,
+      })
+      .select('name category price ingredients')
+      .lean()
+      .exec();
   }
 
   async findByIds(ids: string[], restaurantId: string) {

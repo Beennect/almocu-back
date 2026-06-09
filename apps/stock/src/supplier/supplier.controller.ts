@@ -9,6 +9,7 @@ import {
   UseGuards,
   Req,
   NotFoundException,
+  Query,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { SupplierService } from './supplier.service';
@@ -81,6 +82,13 @@ export class SupplierController {
     description: 'Itens por página (padrão: 10, máximo: 100)',
     example: 10,
   })
+  @ApiQuery({
+    name: 'active',
+    required: false,
+    enum: ['true', 'false', 'all'],
+    description: 'Filtrar por ativos (true), inativos (false) ou todos (all). Padrão: true',
+    example: 'true',
+  })
   @ApiOkResponse({
     type: SupplierPageDto,
     description: 'Lista paginada de fornecedores',
@@ -88,8 +96,9 @@ export class SupplierController {
   findAll(
     @RestaurantId() restaurantId: string,
     @PageableParams() pageable: Pageable,
+    @Query('active') active?: 'true' | 'false' | 'all',
   ) {
-    return this.supplierService.findAll(restaurantId, pageable);
+    return this.supplierService.findAll(restaurantId, pageable, active);
   }
 
   @Get('cnpj/:cnpj')
@@ -133,12 +142,21 @@ export class SupplierController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Remove um fornecedor' })
+  @ApiOperation({ summary: 'Desativa um fornecedor (soft delete)' })
   @ApiForbiddenResponse({
     description: 'Apenas proprietários e gerentes',
   })
   remove(@Param('id') id: string, @RestaurantId() restaurantId: string) {
     return this.supplierService.remove(id, restaurantId);
+  }
+
+  @Patch(':id/reactivate')
+  @ApiOperation({ summary: 'Reativa um fornecedor desativado' })
+  @ApiForbiddenResponse({
+    description: 'Apenas proprietários e gerentes',
+  })
+  reactivate(@Param('id') id: string, @RestaurantId() restaurantId: string) {
+    return this.supplierService.reactivate(id, restaurantId);
   }
 }
 

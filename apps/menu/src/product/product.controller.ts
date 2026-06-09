@@ -10,6 +10,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -95,6 +96,13 @@ export class ProductController {
     description: 'Itens por página (padrão: 10, máximo: 100)',
     example: 10,
   })
+  @ApiQuery({
+    name: 'active',
+    required: false,
+    enum: ['true', 'false', 'all'],
+    description: 'Filtrar por ativos (true), inativos (false) ou todos (all). Padrão: true',
+    example: 'true',
+  })
   @ApiOkResponse({
     type: ProductPageDto,
     description: 'Lista paginada de produtos',
@@ -102,8 +110,9 @@ export class ProductController {
   findAll(
     @RestaurantId() restaurantId: string,
     @PageableParams() pageable: Pageable,
+    @Query('active') active?: 'true' | 'false' | 'all',
   ) {
-    return this.productService.findAll(restaurantId, pageable);
+    return this.productService.findAll(restaurantId, pageable, active);
   }
 
   @Get(':id')
@@ -126,11 +135,19 @@ export class ProductController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Remove um produto do cardápio' })
+  @ApiOperation({ summary: 'Desativa um produto do cardápio (soft delete)' })
   @Roles('OWNER', 'MANAGER')
   @ApiForbiddenResponse({ description: 'Apenas proprietários e gerentes' })
   remove(@Param('id') id: string, @RestaurantId() restaurantId: string) {
     return this.productService.remove(id, restaurantId);
+  }
+
+  @Patch(':id/reactivate')
+  @ApiOperation({ summary: 'Reativa um produto desativado do cardápio' })
+  @Roles('OWNER', 'MANAGER')
+  @ApiForbiddenResponse({ description: 'Apenas proprietários e gerentes' })
+  reactivate(@Param('id') id: string, @RestaurantId() restaurantId: string) {
+    return this.productService.reactivate(id, restaurantId);
   }
 
   @Post(':id/upload')
@@ -194,5 +211,15 @@ export class ProductController {
     @RestaurantId() restaurantId: string,
   ) {
     return this.productService.findByIds(batchIdsDto.ids, restaurantId);
+  }
+
+  @Get('by-ingredient/:stockProductId')
+  @ApiOperation({ summary: 'Busca produtos que usam um determinado ingrediente (item de estoque)' })
+  @Roles('OWNER', 'MANAGER', 'KITCHEN')
+  findByIngredient(
+    @Param('stockProductId') stockProductId: string,
+    @RestaurantId() restaurantId: string,
+  ) {
+    return this.productService.findByStockProductId(stockProductId, restaurantId);
   }
 }

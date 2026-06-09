@@ -47,8 +47,13 @@ export class Product extends Document {
   @ApiProperty()
   @Prop({ required: true, index: true })
   restaurantId!: string;
+
+  @ApiProperty({ default: true, description: 'Se o produto está ativo no cardápio' })
+  @Prop({ default: true })
+  isActive!: boolean;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
 
 ProductSchema.index({ name: 1, category: 1, restaurantId: 1 }, { unique: true });
+ProductSchema.index({ restaurantId: 1, isActive: 1 });
