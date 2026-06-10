@@ -202,6 +202,15 @@ export class OrderService {
       // 5. Cria o pedido (estoque já validado)
       let order: Order;
 
+      // Validar tableId se fornecido
+      let tableId: Types.ObjectId | undefined;
+      if (createOrderDto.tableId) {
+        if (!Types.ObjectId.isValid(createOrderDto.tableId)) {
+          throw new BadRequestException('ID da mesa inválido');
+        }
+        tableId = new Types.ObjectId(createOrderDto.tableId);
+      }
+
       // Se o criador é DELIVERY e não informou deliveryUserId, auto-atribui
       const deliveryUserId =
         createOrderDto.deliveryUserId
@@ -221,6 +230,7 @@ export class OrderService {
           restaurantId: new Types.ObjectId(restaurantId),
           totalValue,
           deliveryUserId,
+          tableId,
           statusHistory: [{ status: 'pendente', timestamp: new Date() }],
         }).save();
       } catch (saveError: any) {

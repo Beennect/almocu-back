@@ -5,6 +5,8 @@ import { JwtAuthModule } from '@app/common';
 import { OrderService } from './order.service';
 import { OrderController } from './order.controller';
 import { Order, OrderSchema } from './order.schema';
+import { TableModule } from '../table/table.module';
+import { BillSplitModule } from '../bill-split/bill-split.module';
 import * as http from 'http';
 import * as https from 'https';
 
@@ -17,6 +19,8 @@ import * as https from 'https';
       httpsAgent: new https.Agent({ keepAlive: true, keepAliveMsecs: 30000 }),
     }),
     JwtAuthModule,
+    TableModule,
+    BillSplitModule,
   ],
 
   controllers: [OrderController],

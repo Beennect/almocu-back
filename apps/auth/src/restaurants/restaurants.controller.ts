@@ -26,6 +26,7 @@ import {
 } from './dto/create-restaurant.dto';
 import { Plan } from './restaurant.schema';
 import { JoinRestaurantDto } from './dto/join-restaurant.dto';
+import { UpdateFeaturesDto } from './dto/update-features.dto';
 import { UserRole, RolesGuard, Roles } from '@app/common';
 import type { Request } from 'express';
 import { PageableParams } from '@app/common';
@@ -197,5 +198,25 @@ export class RestaurantsController {
     @Req() req: Request,
   ) {
     return this.restaurantsService.reactivate(restaurantId, req.user!.id);
+  }
+
+  @ApiOperation({
+    summary: 'Atualiza as funcionalidades do restaurante',
+    description:
+      'Permite ativar/desativar funcionalidades como sistema de mesas. Apenas o proprietário pode alterar.',
+  })
+  @Roles(UserRole.OWNER)
+  @ApiForbiddenResponse({ description: 'Apenas OWNER' })
+  @Patch(':id/features')
+  async updateFeatures(
+    @Param('id') restaurantId: string,
+    @Req() req: Request,
+    @Body() featuresDto: UpdateFeaturesDto,
+  ) {
+    return this.restaurantsService.updateFeatures(
+      restaurantId,
+      req.user!.id,
+      featuresDto,
+    );
   }
 }

@@ -722,6 +722,52 @@ export class RestaurantsService {
     return { message: 'Restaurante reativado com sucesso' };
   }
 
+  async updateFeatures(
+    restaurantId: string,
+    userId: string,
+    features: { hasTables?: boolean },
+  ): Promise<RestaurantDocument> {
+    const restaurant = await this.restaurantModel.findById(restaurantId).exec();
+    if (!restaurant) {
+      throw new NotFoundException('Restaurante não encontrado');
+    }
+
+    // Apenas OWNER pode alterar funcionalidades
+    const link = await this.userRestaurantModel
+      .findOne({
+        userId: new Types.ObjectId(userId),
+        restaurantId: restaurant._id,
+        role: UserRole.OWNER,
+        status: 'active',
+      })
+      .exec();
+
+    if (!link) {
+      throw new ForbiddenException(
+        'Apenas o proprietário pode alterar as funcionalidades do restaurante',
+      );
+    }
+
+    const update: Record<string, any> = {};
+    if (features.hasTables !== undefined) {
+      update['features.hasTables'] = features.hasTables;
+    }
+
+    const updated = await this.restaurantModel
+      .findOneAndUpdate(
+        { _id: restaurant._id },
+        { $set: update },
+        { new: true },
+      )
+      .exec();
+
+    if (!updated) {
+      throw new InternalServerErrorException('Erro ao atualizar funcionalidades');
+    }
+
+    return updated;
+  }
+
   private async publishEvent(
     restaurantId: string,
     type: string,

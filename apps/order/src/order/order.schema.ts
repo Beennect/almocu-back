@@ -78,6 +78,9 @@ export class Order extends Document {
   @Prop({ type: Types.ObjectId, index: true })
   deliveryUserId?: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, index: true })
+  tableId?: Types.ObjectId;
+
   @Prop({ type: [OrderItemSchema], required: true })
   items: OrderItem[];
 

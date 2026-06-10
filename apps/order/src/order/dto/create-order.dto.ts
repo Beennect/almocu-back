@@ -89,6 +89,15 @@ export class CreateOrderDto {
   @IsOptional()
   @IsMongoId()
   deliveryUserId?: string;
+
+  @ApiProperty({
+    required: false,
+    example: '60d5ecb8b392d70015f8e32a',
+    description: 'ID da mesa (opcional, apenas se o restaurante tiver sistema de mesas)',
+  })
+  @IsOptional()
+  @IsMongoId()
+  tableId?: string;
 }
 
 export class UpdateOrderStatusDto {

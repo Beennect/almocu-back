@@ -152,9 +152,15 @@ export class ProxyMiddleware implements NestMiddleware {
         } else if (route === '/api/menu') {
           newUrl = '/products' + newUrl;
         } else if (route === '/api/order') {
-          // /api/order/stripe/* → /stripe/* (já está correto)
+          // /api/order/tables/* → /tables/*
+          // /api/order/bill-splits/* → /bill-splits/*
+          // /api/order/stripe/* → /stripe/*
           // /api/order/* → /orders/*
-          if (!newUrl.startsWith('/stripe')) {
+          if (
+            !newUrl.startsWith('/tables') &&
+            !newUrl.startsWith('/bill-splits') &&
+            !newUrl.startsWith('/stripe')
+          ) {
             newUrl = '/orders' + newUrl;
           }
         }

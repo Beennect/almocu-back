@@ -73,6 +73,18 @@ export class Restaurant {
   @ApiProperty({ example: 'active', enum: ['active', 'pending', 'suspended'] })
   @Prop({ default: 'active', enum: ['active', 'pending', 'suspended'] })
   status: string;
+
+  @ApiProperty({
+    description: 'Configurações de funcionalidades do restaurante',
+    example: { hasTables: false },
+  })
+  @Prop({
+    type: Object,
+    default: { hasTables: false },
+  })
+  features: {
+    hasTables: boolean;
+  };
 }
 
 export const RestaurantSchema = SchemaFactory.createForClass(Restaurant);
