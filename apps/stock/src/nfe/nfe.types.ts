@@ -71,3 +71,13 @@ export interface NfeParseResult {
   accessKey?: string;
   duplicate?: NfeDuplicateInfo;
 }
+
+export interface NfeImportResult {
+  supplier: { id: string; name: string; cnpj: string } | null;
+  summary: {
+    total: number;
+    created: number;
+    updated: number;
+    errors: string[];
+  };
+}

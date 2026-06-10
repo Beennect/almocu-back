@@ -19,7 +19,8 @@ import { RolesGuard } from '@app/common/guards/roles.guard';
 import { Roles } from '@app/common/decorators/roles.decorator';
 import { RestaurantId } from '@app/common/decorators/restaurant-id.decorator';
 import { NfeService } from './nfe.service';
-import { NfeParseResult } from './nfe.types';
+import { NfeParseResult, NfeImportResult } from './nfe.types';
+import { NfeImportDto } from './dto/nfe-import.dto';
 
 @ApiTags('nfe')
 @ApiBearerAuth()
@@ -108,6 +109,64 @@ export class NfeController {
     }
 
     return this.nfeService.parseXml(buffer, restaurantId);
+  }
+
+  @Post('import')
+  @ApiOperation({
+    summary: 'Importar itens de NF-e em lote',
+    description:
+      'Recebe a lista de itens revisados e os dados do emitente, cria ou atualiza o fornecedor ' +
+      'automaticamente pelo CNPJ, cria ou atualiza os itens no estoque e registra a importação.',
+  })
+  @ApiBody({ type: NfeImportDto })
+  @ApiOkResponse({
+    description: 'Resultado da importação',
+    schema: {
+      type: 'object',
+      properties: {
+        supplier: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            name: { type: 'string' },
+            cnpj: { type: 'string' },
+          },
+        },
+        summary: {
+          type: 'object',
+          properties: {
+            total: { type: 'number' },
+            created: { type: 'number' },
+            updated: { type: 'number' },
+            errors: { type: 'array', items: { type: 'string' } },
+          },
+        },
+      },
+    },
+  })
+  async importNfe(
+    @Body() dto: NfeImportDto,
+    @RestaurantId() restaurantId: string,
+    @Req() req: any,
+  ): Promise<NfeImportResult> {
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException('A lista de itens não pode estar vazia.');
+    }
+
+    const userId = req.user.id;
+    const userName = req.user.username;
+
+    return this.nfeService.importItems(
+      {
+        items: dto.items,
+        supplierName: dto.supplierName,
+        supplierCnpj: dto.supplierCnpj,
+        accessKey: dto.accessKey,
+      },
+      restaurantId,
+      userId,
+      userName,
+    );
   }
 
   @Post('record')
