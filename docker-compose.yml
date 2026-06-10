@@ -15,7 +15,7 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - JWT_SECRET=${JWT_SECRET}
-      - MONGODB_URI=mongodb://mongodb:27017/auth_app
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017}/auth_app
       - REDIS_URI=redis://redis:6379
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
@@ -46,7 +46,7 @@ services:
       - PORT=3000
       - JWT_SECRET=${JWT_SECRET}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY}
-      - MONGODB_URI=mongodb://mongodb:27017/almocu
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017}/almocu
       - REDIS_URI=redis://redis:6379
     depends_on:
       mongodb:
@@ -74,7 +74,7 @@ services:
       - PORT=3000
       - JWT_SECRET=${JWT_SECRET}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY}
-      - MONGODB_URI=mongodb://mongodb:27017/almocu_stock
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017}/almocu_stock
       - REDIS_URI=redis://redis:6379
     depends_on:
       mongodb:
@@ -102,7 +102,7 @@ services:
       - PORT=3000
       - JWT_SECRET=${JWT_SECRET}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY}
-      - MONGODB_URI=mongodb://mongodb:27017/almocu_order
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017}/almocu_order
       - REDIS_URI=redis://redis:6379
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
     depends_on:
