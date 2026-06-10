@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UsersModule } from './users/users.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
+import { ModulesModule } from './modules/modules.module';
 import { ProxyMiddleware } from './common/middlewares/proxy.middleware';
 import { RedisModule } from './redis/redis.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -42,6 +43,7 @@ import { RealtimeModule } from './realtime/realtime.module';
     AuthModule,
     UsersModule,
     RestaurantsModule,
+    ModulesModule,
   ],
   controllers: [AppController],
   providers: [

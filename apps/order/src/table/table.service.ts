@@ -3,18 +3,24 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Table } from './table.schema';
 import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableDto } from './dto/update-table.dto';
-import { Pageable, Page } from '@app/common';
+import { Pageable, Page, RedisService } from '@app/common';
 
 @Injectable()
 export class TableService {
+  private readonly logger = new Logger(TableService.name);
+  private readonly realtimeChannel = (restaurantId: string) =>
+    `realtime:${restaurantId}`;
+
   constructor(
     @InjectModel(Table.name) private tableModel: Model<Table>,
+    private readonly redisService: RedisService,
   ) {}
 
   async create(
@@ -41,7 +47,9 @@ export class TableService {
       capacity: createTableDto.capacity,
     });
 
-    return table.save();
+    const saved = await table.save();
+    this.publishEvent(restaurantId, 'table:changed', { action: 'created' });
+    return saved;
   }
 
   async findAll(
@@ -140,6 +148,7 @@ export class TableService {
       throw new NotFoundException('Mesa não encontrada');
     }
 
+    this.publishEvent(restaurantId, 'table:changed', { action: 'updated' });
     return updated;
   }
 
@@ -158,5 +167,15 @@ export class TableService {
     if (!result) {
       throw new NotFoundException('Mesa não encontrada');
     }
+
+    this.publishEvent(restaurantId, 'table:changed', { action: 'removed' });
+  }
+
+  private async publishEvent(restaurantId: string, type: string, payload: any): Promise<void> {
+    const channel = this.realtimeChannel(restaurantId);
+    const message = JSON.stringify({ type, payload });
+    await this.redisService.publish(channel, message).catch((err) => {
+      this.logger.error(`Failed to publish event ${type}: ${(err as Error).message}`);
+    });
   }
 }

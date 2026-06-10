@@ -123,6 +123,9 @@ export class StockService {
     } else if (updateStockDto.supplierId === null) {
       updateData.supplierId = null;
     }
+    if (updateStockDto.category !== undefined) {
+      updateData.category = updateStockDto.category;
+    }
 
     const updated = await this.stockModel
       .findOneAndUpdate(
