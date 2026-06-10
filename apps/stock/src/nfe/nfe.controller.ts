@@ -1,38 +1,25 @@
 import {
   Controller,
-  Get,
   Post,
-  Delete,
-  Param,
-  UploadedFile,
+  Body,
   UseGuards,
-  UseInterceptors,
   BadRequestException,
   Req,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
-  ApiConsumes,
   ApiBody,
-  ApiQuery,
   ApiOkResponse,
-  ApiParam,
   ApiBearerAuth,
   ApiHeader,
-  ApiForbiddenResponse,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@app/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@app/common/guards/roles.guard';
 import { Roles } from '@app/common/decorators/roles.decorator';
 import { RestaurantId } from '@app/common/decorators/restaurant-id.decorator';
-import { PageableParams } from '@app/common';
-import type { Pageable } from '@app/common';
 import { NfeService } from './nfe.service';
-import { UploadNfeDto } from './dto/upload-nfe.dto';
-import { NfeInvoicePageDto } from './dto/nfe-invoice-page.dto';
-import type { Request } from 'express';
+import { NfeParseResult } from './nfe.types';
 
 @ApiTags('nfe')
 @ApiBearerAuth()
@@ -47,121 +34,123 @@ import type { Request } from 'express';
 export class NfeController {
   constructor(private readonly nfeService: NfeService) {}
 
-  @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @Post('parse')
   @ApiOperation({
-    summary: 'Importar XML de NF-e',
+    summary: 'Parsear XML de NF-e',
     description:
-      'Faz o upload do XML de uma Nota Fiscal Eletrônica, extrai os produtos e atualiza o estoque. ' +
-      'Se o item já existir (mesmo nome), incrementa a quantidade. Se não existir, cria um novo. ' +
-      'O fornecedor é vinculado automaticamente pelo CNPJ do emitente. ' +
-      'A nota fiscal é salva no histórico de compras.',
+      'Recebe o conteúdo XML de uma Nota Fiscal Eletrônica e retorna os itens extraídos. ' +
+      'Nenhum dado é salvo no banco — apenas o parsing é realizado.',
   })
-  @ApiConsumes('multipart/form-data')
   @ApiBody({
-    description: 'Arquivo XML da NF-e',
-    type: UploadNfeDto,
+    description: 'Conteúdo XML da NF-e',
+    schema: {
+      type: 'object',
+      properties: {
+        xml: {
+          type: 'string',
+          example: '<?xml version="1.0" encoding="UTF-8"?><NFe>...</NFe>',
+          description: 'Conteúdo completo do XML da NF-e',
+        },
+      },
+      required: ['xml'],
+    },
   })
-  async upload(
-    @UploadedFile() file: Express.Multer.File | undefined,
+  @ApiOkResponse({
+    description: 'Itens extraídos da NF-e',
+    schema: {
+      type: 'object',
+      properties: {
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', example: 'Prato Executivo - Filé de Frango' },
+              ncm: { type: 'string', example: '21069090' },
+              unit: { type: 'string', example: 'UN' },
+              quantity: { type: 'number', example: 2 },
+              unitPrice: { type: 'number', example: 32.9 },
+              totalPrice: { type: 'number', example: 65.8 },
+            },
+          },
+        },
+        supplierName: { type: 'string', example: 'Restaurante Sabor da Casa LTDA' },
+        supplierCnpj: { type: 'string', example: '12345678000195' },
+        accessKey: { type: 'string', example: '35200612345678000195001100000012345678901234' },
+        duplicate: {
+          type: 'object',
+          properties: {
+            importedAt: { type: 'string', format: 'date-time' },
+            userName: { type: 'string', example: 'joao' },
+            itemCount: { type: 'number', example: 5 },
+          },
+        },
+      },
+    },
+  })
+  async parse(
+    @Body('xml') xml: string,
     @RestaurantId() restaurantId: string,
-    @Req() req: Request,
-  ) {
-    if (!file) {
-      throw new BadRequestException('Arquivo XML é obrigatório.');
+  ): Promise<NfeParseResult> {
+    if (!xml || typeof xml !== 'string' || !xml.trim()) {
+      throw new BadRequestException('O campo "xml" é obrigatório.');
     }
 
-    if (!file.originalname.toLowerCase().endsWith('.xml')) {
-      throw new BadRequestException('O arquivo deve ser um XML (.xml).');
-    }
+    const buffer = Buffer.from(xml, 'utf-8');
 
-    if (file.size === 0) {
-      throw new BadRequestException('O arquivo XML está vazio.');
+    if (buffer.length === 0) {
+      throw new BadRequestException('O XML está vazio.');
     }
 
     const sizeLimit = 10 * 1024 * 1024;
-    if (file.size > sizeLimit) {
-      throw new BadRequestException(
-        'O arquivo XML excede o limite de 10 MB.',
-      );
+    if (buffer.length > sizeLimit) {
+      throw new BadRequestException('O XML excede o limite de 10 MB.');
     }
 
-    const userId = (req.user as any)?.id || (req.user as any)?.sub || '';
-
-    return this.nfeService.processXml(file.buffer, restaurantId, userId);
+    return this.nfeService.parseXml(buffer, restaurantId);
   }
 
-  @Get('invoices')
+  @Post('record')
   @ApiOperation({
-    summary: 'Listar histórico de notas fiscais',
+    summary: 'Registrar importação de NF-e',
     description:
-      'Retorna a lista paginada de notas fiscais importadas no restaurante.',
+      'Salva o registro de importação de uma NF-e após a confirmação dos itens pelo usuário.',
   })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    description: 'Número da página (padrão: 1)',
-    example: 1,
+  @ApiBody({
+    description: 'Dados da importação',
+    schema: {
+      type: 'object',
+      properties: {
+        accessKey: { type: 'string', example: '35200612345678000195001100000012345678901234' },
+        supplierName: { type: 'string', example: 'Fornecedor LTDA' },
+        supplierCnpj: { type: 'string', example: '12345678000195' },
+        itemCount: { type: 'number', example: 5 },
+      },
+      required: ['accessKey', 'itemCount'],
+    },
   })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Itens por página (padrão: 10, máximo: 100)',
-    example: 10,
-  })
-  @ApiOkResponse({
-    type: NfeInvoicePageDto,
-    description: 'Lista paginada de notas fiscais',
-  })
-  async findAll(
+  async record(
+    @Body() body: { accessKey: string; supplierName?: string; supplierCnpj?: string; itemCount: number },
     @RestaurantId() restaurantId: string,
-    @PageableParams() pageable: Pageable,
-  ) {
-    return this.nfeService.findAll(restaurantId, pageable);
-  }
+    @Req() req: any,
+  ): Promise<{ success: boolean }> {
+    if (!body.accessKey || typeof body.accessKey !== 'string') {
+      throw new BadRequestException('accessKey é obrigatório.');
+    }
+    if (!body.itemCount || typeof body.itemCount !== 'number') {
+      throw new BadRequestException('itemCount é obrigatório.');
+    }
 
-  @Get('invoices/:id')
-  @ApiOperation({
-    summary: 'Detalhar uma nota fiscal',
-    description: 'Retorna os dados completos de uma nota fiscal importada.',
-  })
-  @ApiParam({
-    name: 'id',
-    required: true,
-    description: 'ID da nota fiscal',
-  })
-  @ApiOkResponse({
-    description: 'Dados completos da nota fiscal',
-  })
-  async findOne(
-    @Param('id') id: string,
-    @RestaurantId() restaurantId: string,
-  ) {
-    return this.nfeService.findOne(id, restaurantId);
-  }
+    await this.nfeService.recordImport({
+      accessKey: body.accessKey,
+      restaurantId,
+      userId: req.user.id,
+      userName: req.user.username,
+      supplierName: body.supplierName,
+      supplierCnpj: body.supplierCnpj,
+      itemCount: body.itemCount,
+    });
 
-  @Delete('invoices/:id')
-  @ApiOperation({
-    summary: 'Remover nota fiscal do histórico',
-    description:
-      'Remove o registro da nota fiscal do histórico. ' +
-      'ATENÇÃO: Isto não altera o estoque — os itens já foram adicionados.',
-  })
-  @ApiParam({
-    name: 'id',
-    required: true,
-    description: 'ID da nota fiscal',
-  })
-  @ApiOkResponse({
-    description: 'Nota fiscal removida com sucesso',
-  })
-  async remove(
-    @Param('id') id: string,
-    @RestaurantId() restaurantId: string,
-  ) {
-    await this.nfeService.remove(id, restaurantId);
-    return { message: 'Nota fiscal removida do histórico com sucesso.' };
+    return { success: true };
   }
 }

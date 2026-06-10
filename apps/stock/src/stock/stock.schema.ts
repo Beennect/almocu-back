@@ -48,6 +48,18 @@ export class Stock {
   @Prop({ default: '' })
   brand!: string;
 
+  @ApiProperty({ example: 'Laticínios', description: 'Categoria do item' })
+  @Prop({ required: true })
+  category!: string;
+
+  @ApiProperty({
+    example: 25.90,
+    description: 'Valor unitário (opcional)',
+    required: false,
+  })
+  @Prop({ default: 0, min: 0 })
+  unitPrice?: number;
+
   @ApiProperty({ example: 10, description: 'Quantidade atual em estoque' })
   @Prop({ required: true, min: 0 })
   quantity!: number;

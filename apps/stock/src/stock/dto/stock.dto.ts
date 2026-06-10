@@ -23,6 +23,22 @@ export class CreateStockDto {
   @MaxLength(100)
   brand?: string;
 
+  @ApiProperty({ example: 'Laticínios', description: 'Categoria do item' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  category!: string;
+
+  @ApiProperty({
+    example: 25.90,
+    description: 'Valor unitário (opcional)',
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  unitPrice?: number;
+
   @ApiProperty({ example: 10 })
   @IsNumber()
   @Min(0)
@@ -61,6 +77,21 @@ export class UpdateStockDto {
   @IsOptional()
   @MaxLength(100)
   brand?: string;
+
+  @ApiProperty({ required: false, description: 'Categoria do item' })
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  category?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Valor unitário (opcional)',
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  unitPrice?: number;
 
   @ApiProperty({ required: false })
   @IsNumber()

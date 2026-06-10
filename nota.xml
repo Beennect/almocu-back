@@ -4,7 +4,7 @@
 
     <ide>
       <cUF>35</cUF>
-      <natOp>Venda de Refeições e Bebidas</natOp>
+      <natOp>Venda de Mercadorias para Revenda</natOp>
       <mod>55</mod>
       <serie>1</serie>
       <nNF>5678</nNF>
@@ -22,90 +22,146 @@
 
     <emit>
       <CNPJ>12345678000195</CNPJ>
-      <xNome>Restaurante Sabor da Casa LTDA</xNome>
+      <xNome>Distribuidora de Alimentos LTDA</xNome>
       <IE>123456789123</IE>
       <CRT>1</CRT>
     </emit>
 
     <dest>
       <CPF>12345678909</CPF>
-      <xNome>João da Silva</xNome>
+      <xNome>Restaurante Sabor da Casa</xNome>
     </dest>
 
-    <!-- Item 1 -->
+    <!-- 1. Filé de Frango (KG) → NCM 0207 → Carnes -->
     <det nItem="1">
       <prod>
-        <cProd>REF001</cProd>
-        <xProd>Prato Executivo - Filé de Frango</xProd>
-        <NCM>21069090</NCM>
+        <cProd>FRG001</cProd>
+        <xProd>Filé de Peito de Frango Congelado</xProd>
+        <NCM>02071400</NCM>
         <CFOP>5102</CFOP>
-        <uCom>UN</uCom>
-        <qCom>2.0000</qCom>
-        <vUnCom>32.90</vUnCom>
-        <vProd>65.80</vProd>
+        <uCom>KG</uCom>
+        <qCom>15.000</qCom>
+        <vUnCom>18.90</vUnCom>
+        <vProd>283.50</vProd>
       </prod>
     </det>
 
-    <!-- Item 2 -->
+    <!-- 2. Arroz (KG) → NCM 1006 → Grãos -->
     <det nItem="2">
       <prod>
-        <cProd>BEB001</cProd>
-        <xProd>Refrigerante Lata 350ml</xProd>
-        <NCM>22021000</NCM>
+        <cProd>ARZ001</cProd>
+        <xProd>Arroz Branco Tipo 1</xProd>
+        <NCM>10063021</NCM>
         <CFOP>5102</CFOP>
-        <uCom>UN</uCom>
-        <qCom>3.0000</qCom>
-        <vUnCom>6.50</vUnCom>
-        <vProd>19.50</vProd>
+        <uCom>KG</uCom>
+        <qCom>25.000</qCom>
+        <vUnCom>4.50</vUnCom>
+        <vProd>112.50</vProd>
       </prod>
     </det>
 
-    <!-- Item 3 -->
+    <!-- 3. Feijão (KG) → NCM 0713 → Grãos -->
     <det nItem="3">
       <prod>
-        <cProd>SOB001</cProd>
-        <xProd>Pudim de Leite</xProd>
-        <NCM>19059090</NCM>
+        <cProd>FJ001</cProd>
+        <xProd>Feijão Carioca Tipo 1</xProd>
+        <NCM>07133399</NCM>
         <CFOP>5102</CFOP>
-        <uCom>UN</uCom>
-        <qCom>2.0000</qCom>
-        <vUnCom>12.00</vUnCom>
-        <vProd>24.00</vProd>
+        <uCom>KG</uCom>
+        <qCom>10.000</qCom>
+        <vUnCom>6.80</vUnCom>
+        <vProd>68.00</vProd>
       </prod>
     </det>
 
-    <!-- Item 4 -->
+    <!-- 4. Óleo de Soja (L) → NCM 1507 → Óleos -->
     <det nItem="4">
       <prod>
-        <cProd>ENT001</cProd>
-        <xProd>Batata Frita Grande</xProd>
-        <NCM>20041000</NCM>
+        <cProd>OLE001</cProd>
+        <xProd>Óleo de Soja Refinado</xProd>
+        <NCM>15079011</NCM>
         <CFOP>5102</CFOP>
-        <uCom>UN</uCom>
-        <qCom>1.0000</qCom>
-        <vUnCom>22.00</vUnCom>
-        <vProd>22.00</vProd>
+        <uCom>L</uCom>
+        <qCom>5.000</qCom>
+        <vUnCom>7.20</vUnCom>
+        <vProd>36.00</vProd>
       </prod>
     </det>
 
-    <!-- Item 5 -->
+    <!-- 5. Farinha de Trigo (KG) → NCM 1101 → Massas -->
     <det nItem="5">
       <prod>
-        <cProd>BEB002</cProd>
-        <xProd>Suco Natural de Laranja 500ml</xProd>
-        <NCM>20099000</NCM>
+        <cProd>FAR001</cProd>
+        <xProd>Farinha de Trigo</xProd>
+        <NCM>11010010</NCM>
         <CFOP>5102</CFOP>
-        <uCom>UN</uCom>
-        <qCom>2.0000</qCom>
-        <vUnCom>9.50</vUnCom>
-        <vProd>19.00</vProd>
+        <uCom>KG</uCom>
+        <qCom>10.000</qCom>
+        <vUnCom>3.90</vUnCom>
+        <vProd>39.00</vProd>
+      </prod>
+    </det>
+
+    <!-- 6. Leite Integral (L) → NCM 0401 → Laticínios -->
+    <det nItem="6">
+      <prod>
+        <cProd>LEI001</cProd>
+        <xProd>Leite Integral UHT</xProd>
+        <NCM>04012010</NCM>
+        <CFOP>5102</CFOP>
+        <uCom>L</uCom>
+        <qCom>12.000</qCom>
+        <vUnCom>4.20</vUnCom>
+        <vProd>50.40</vProd>
+      </prod>
+    </det>
+
+    <!-- 7. Açúcar (KG) → NCM 1701 → Caixa -->
+    <det nItem="7">
+      <prod>
+        <cProd>ACU001</cProd>
+        <xProd>Açúcar Refinado Cristal</xProd>
+        <NCM>17019900</NCM>
+        <CFOP>5102</CFOP>
+        <uCom>KG</uCom>
+        <qCom>5.000</qCom>
+        <vUnCom>3.50</vUnCom>
+        <vProd>17.50</vProd>
+      </prod>
+    </det>
+
+    <!-- 8. Café (KG) → NCM 0901 → Bebidas -->
+    <det nItem="8">
+      <prod>
+        <cProd>CAF001</cProd>
+        <xProd>Café Torrado e Moído</xProd>
+        <NCM>09012100</NCM>
+        <CFOP>5102</CFOP>
+        <uCom>KG</uCom>
+        <qCom>2.000</qCom>
+        <vUnCom>24.50</vUnCom>
+        <vProd>49.00</vProd>
+      </prod>
+    </det>
+
+    <!-- 9. Extrato de Tomate (KG) → NCM 2002 → Conservas -->
+    <det nItem="9">
+      <prod>
+        <cProd>TOM001</cProd>
+        <xProd>Extrato de Tomate</xProd>
+        <NCM>20029010</NCM>
+        <CFOP>5102</CFOP>
+        <uCom>KG</uCom>
+        <qCom>3.000</qCom>
+        <vUnCom>9.80</vUnCom>
+        <vProd>29.40</vProd>
       </prod>
     </det>
 
     <total>
       <ICMSTot>
-        <vProd>150.30</vProd>
-        <vNF>150.30</vNF>
+        <vProd>685.30</vProd>
+        <vNF>685.30</vNF>
       </ICMSTot>
     </total>
 

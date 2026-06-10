@@ -17,6 +17,7 @@ export interface NfeProcess {
 }
 
 interface NfeInfNFe {
+  '@_Id'?: string;
   ide?: {
     dhEmi?: string;
     nNF?: string;
@@ -48,21 +49,25 @@ export interface NfeDet {
   };
 }
 
-export interface NfeInvoiceItem {
+export interface NfeParseItem {
   name: string;
+  ncm?: string;
   unit: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
 }
 
-export interface NfeUploadResult {
-  supplier: { name: string; cnpj: string } | null;
-  invoiceId: string;
-  summary: {
-    total: number;
-    created: number;
-    updated: number;
-    errors: string[];
-  };
+export interface NfeDuplicateInfo {
+  importedAt: Date;
+  userName: string;
+  itemCount: number;
+}
+
+export interface NfeParseResult {
+  items: NfeParseItem[];
+  supplierName?: string;
+  supplierCnpj?: string;
+  accessKey?: string;
+  duplicate?: NfeDuplicateInfo;
 }
