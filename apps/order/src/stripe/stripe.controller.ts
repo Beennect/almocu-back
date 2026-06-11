@@ -62,7 +62,11 @@ export class StripeController {
     if (!body.items || body.items.length === 0) {
       throw new BadRequestException('Nenhum item fornecido');
     }
-    return this.stripeService.createCheckoutSession(body.items);
+    return this.stripeService.createCheckoutSession(
+      body.items,
+      body.successUrl,
+      body.cancelUrl,
+    );
   }
 
   @Get('verify/:sessionId')

@@ -56,6 +56,8 @@ export class StripeService {
    */
   async createCheckoutSession(
     items: { name: string; amount: number; quantity: number }[],
+    successUrl?: string,
+    cancelUrl?: string,
   ) {
     if (this.isFakeToken) {
       this.logger.log('Gerando Checkout Session Mockada...');
@@ -78,21 +80,25 @@ export class StripeService {
         quantity: item.quantity,
       }));
 
-      const successUrl = this.configService.get<string>(
-        'STRIPE_SUCCESS_URL',
-        'http://localhost:3000/success',
-      );
-      const cancelUrl = this.configService.get<string>(
-        'STRIPE_CANCEL_URL',
-        'http://localhost:3000/cancel',
-      );
+      const finalSuccessUrl =
+        successUrl ||
+        this.configService.get<string>(
+          'STRIPE_SUCCESS_URL',
+          'http://localhost:3000/success',
+        );
+      const finalCancelUrl =
+        cancelUrl ||
+        this.configService.get<string>(
+          'STRIPE_CANCEL_URL',
+          'http://localhost:3000/cancel',
+        );
 
       const session = await this.stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         line_items,
         mode: 'payment',
-        success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: cancelUrl,
+        success_url: `${finalSuccessUrl}?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: finalCancelUrl,
       });
 
       return {

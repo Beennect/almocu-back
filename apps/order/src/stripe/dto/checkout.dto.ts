@@ -1,7 +1,8 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
   IsNumber,
+  IsOptional,
   IsString,
   Min,
   ValidateNested,
@@ -36,4 +37,22 @@ export class CreateCheckoutDto {
   @ValidateNested({ each: true })
   @Type(() => CheckoutItemDto)
   items: CheckoutItemDto[];
+
+  @ApiPropertyOptional({
+    description:
+      'URL de redirecionamento após pagamento bem-sucedido. Se não informada, usa STRIPE_SUCCESS_URL do .env ou fallback.',
+    example: 'https://meuapp.com/payment/success',
+  })
+  @IsOptional()
+  @IsString()
+  successUrl?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'URL de redirecionamento após pagamento cancelado. Se não informada, usa STRIPE_CANCEL_URL do .env ou fallback.',
+    example: 'https://meuapp.com/payment/cancel',
+  })
+  @IsOptional()
+  @IsString()
+  cancelUrl?: string;
 }
